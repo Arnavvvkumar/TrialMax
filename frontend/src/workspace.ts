@@ -50,3 +50,28 @@ export function reviewedRules(state: Workspace) {
   const accepted = new Map(state.draft.filter(r => state.decisions[r.id]?.decision === 'accepted').map(r => [r.id, r]))
   return state.analysis?.rules.map(r => accepted.get(r.id) ?? r) ?? []
 }
+
+const SPECIFIC_PREFIX = 'Additional requirement is not modeled: '
+const GENERIC_NOTE = /^Part of criterion .* that is not modeled\.$/
+
+// Explains one "not checked" rule: the specific part that was not evaluated and why. Several rules can
+// come from the same sentence, so repeating the whole sentence for each one hides what is different.
+export function notCheckedDetail(rule: Rule, labels: Record<string, { label: string }> = {}) {
+  if (rule.simulatable && rule.variable) {
+    const threshold = rule.operator === 'between' ? `${rule.value}-${rule.value_max}` : `${rule.operator} ${rule.value ?? ''}`
+    return {
+      what: `${labels[rule.variable]?.label ?? rule.variable.replaceAll('_', ' ')} ${threshold} ${rule.unit ?? ''}`.replace(/\s+/g, ' ').trim(),
+      reason: 'Understood, but the selected patient population has no data for this field.',
+      badge: 'No data in population',
+    }
+  }
+  // Use the specific leftover only when it is a real threshold (e.g. "wbc >=3.5 ..."); a bare word
+  // fragment such as "class iii" is less clear than the original sentence.
+  const specific = rule.notes.find(note => note.startsWith(SPECIFIC_PREFIX) && /(>=|<=|>|<)\s*\d/.test(note))
+  const reason = rule.notes.find(note => note !== specific && !GENERIC_NOTE.test(note) && !note.startsWith(SPECIFIC_PREFIX))
+  return {
+    what: specific ? specific.slice(SPECIFIC_PREFIX.length) : (rule.clause || rule.text),
+    reason: reason ?? 'The simulator cannot represent this requirement, so it needs researcher review.',
+    badge: 'Not modeled',
+  }
+}

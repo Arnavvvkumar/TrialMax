@@ -447,6 +447,15 @@ def parse_labs(s: str) -> tuple[list[Parsed], list[str]]:
             start, _, variable = mentions[i]
             if variable == "crcl" and renal_method_ckd and "egfr" not in {m[2] for m in mentions}:
                 variable = "egfr"
+            # "GFR >= 45 mL/min" (absolute, not per 1.73 m2) is a clearance in mL/min: model it as
+            # Cockcroft-Gault creatinine clearance, flagged approximate, never as indexed eGFR.
+            # Only plain "GFR"/"glomerular filtration rate": "eGFR ... mL/min" stays refused, because
+            # eGFR conventionally means the indexed (per 1.73 m2) value and the unit is ambiguous.
+            plain_gfr = not re.search(r"egfr|estimated", s[start: mentions[i][1]])
+            gfr_as_crcl = (variable == "egfr" and plain_gfr and not uln and not renal_method_ckd
+                           and _detect_unit(s[t.end(): t.end() + 30]) == "mL/min")
+            if gfr_as_crcl:
+                variable = "crcl"
             if variable in results:
                 continue
             converted = _convert_lab(variable, value, uln, s[t.end(): t.end() + 30])
@@ -456,6 +465,9 @@ def parse_labs(s: str) -> tuple[list[Parsed], list[str]]:
             v, unit, notes = converted
             parsed = Parsed("lab", variable, t.group(1), v, unit=unit, start=start, end=t.end(),
                             approximate=bool(notes), notes=list(notes))
+            if gfr_as_crcl:
+                parsed.approximate = True
+                parsed.notes.append("GFR stated in mL/min (not per 1.73 m2); modeled as Cockcroft-Gault creatinine clearance.")
             if variable == "crcl" and measured_crcl:
                 parsed.approximate = True
                 parsed.notes.append("Measured (urine) clearance requested; modeled with a Cockcroft-Gault estimate.")

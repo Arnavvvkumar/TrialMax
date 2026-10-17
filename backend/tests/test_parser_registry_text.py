@@ -48,9 +48,16 @@ def test_unnamed_extra_bound_on_a_modeled_lab_is_still_refused():
     assert not any(r.simulatable for r in rules)
 
 
-def test_absolute_gfr_unit_is_still_not_treated_as_egfr():
+def test_absolute_gfr_unit_is_modeled_as_creatinine_clearance_not_egfr():
     rules = parse_criterion("I1", "inclusion", "Renal function: GFR >= 45 ml/min")
-    assert not any(r.simulatable for r in rules)
+    r = rules[0]
+    assert (r.variable, r.operator, r.value, r.unit) == ("crcl", ">=", 45, "mL/min")
+    assert r.fidelity == "approximate" and any("Cockcroft-Gault" in n for n in r.notes)
+
+
+def test_indexed_egfr_unit_stays_egfr():
+    r = parse_criterion("I1", "inclusion", "eGFR >= 60 mL/min/1.73 m2")[0]
+    assert (r.variable, r.unit, r.fidelity) == ("egfr", "mL/min/1.73m2", "exact")
 
 
 def test_single_sex_restriction_is_not_erased():
