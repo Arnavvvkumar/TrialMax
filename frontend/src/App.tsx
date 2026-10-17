@@ -1,16 +1,17 @@
 import { useEffect, useMemo, useReducer, useRef, useState } from 'react'
-import { Activity, ArrowRight, BarChart3, BookOpen, ChevronRight, CircleHelp, Download, FileCheck2, FlaskConical, LayoutDashboard, Leaf, Menu, RotateCcw, ShieldAlert, ShieldCheck, SlidersHorizontal, X } from 'lucide-react'
-import { analyzeTrial, checkChalk, compareCriteria, getHealth, getPopulations, getVariables } from './simulationService'
+import { Activity, ArrowRight, BarChart3, BookOpen, ChevronRight, CircleHelp, Download, FileCheck2, FlaskConical, LayoutDashboard, Leaf, MapPinned, Menu, RotateCcw, ShieldAlert, ShieldCheck, SlidersHorizontal, X } from 'lucide-react'
+import { analyzeTrial, checkChalk, compareCriteria, getHealth, getPopulations, getRareReach, getVariables } from './simulationService'
 import { changedRules, defaultPopulationMode, emptyWorkspace, reviewedRules, validDraft, workspaceReducer } from './workspace'
 import { exampleProtocol } from './exampleProtocol'
-import type { ApiHealth, ChalkCheck, CompareResult, PopulationCatalog, PopulationChoice, ReviewDecision, Rule, SimulationResult, VariableMeta } from './scenarioTypes'
+import type { ApiHealth, ChalkCheck, CompareResult, PopulationCatalog, PopulationChoice, RareReachResponse, ReviewDecision, Rule, SimulationResult, VariableMeta } from './scenarioTypes'
 import type { Workspace } from './workspace'
 
-type Tab = 'overview' | 'analysis' | 'scenario' | 'review'
+type Tab = 'overview' | 'analysis' | 'scenario' | 'rare' | 'review'
 const tabs = [
   { id: 'overview' as const, name: 'Trial & population', icon: LayoutDashboard },
   { id: 'analysis' as const, name: 'Eligibility analysis', icon: BarChart3 },
   { id: 'scenario' as const, name: 'Scenario analysis', icon: SlidersHorizontal },
+  { id: 'rare' as const, name: 'RareReach', icon: MapPinned },
   { id: 'review' as const, name: 'Researcher review', icon: FileCheck2 },
 ]
 const readable = (text: string) => text.replaceAll('_', ' ')
@@ -75,6 +76,11 @@ function Comparison({ result }: { result: CompareResult }) {
   </Card>
 }
 
+function RareReach({ result, loading, onLoad }: { result: RareReachResponse | null; loading: boolean; onLoad: () => void }) {
+  if (!result) return <Card><div className="empty-view"><MapPinned size={30} /><h2>Find public recruitment channels</h2><p>RareReach identifies public ClinicalTrials.gov site history and links to Orphanet and NORD research resources. It never accesses patient records or estimates patient volume.</p><button className="btn primary" disabled={loading} onClick={onLoad}>{loading ? 'Searching public sources…' : 'Research recruitment options'} <ArrowRight size={16} /></button></div></Card>
+  return <div className="results-stack"><Warnings items={result.warnings} /><Card><div className="card-top"><div><h2>Rare-disease profile</h2><p>Terms from the public trial record: {result.query_terms.join(', ') || 'No condition available'}</p></div><Badge kind={result.orpha_status === 'matched' ? 'sage' : 'amber'}>Orphadata: {result.orpha_status}</Badge></div>{result.orpha_code ? <><p><b>ORPHAcode:</b> {result.orpha_code} · <b>Preferred term:</b> {result.orpha_preferred_name ?? 'Unavailable'}</p><p className="muted">Synonyms: {result.orpha_synonyms.length ? result.orpha_synonyms.join(', ') : 'None returned'}</p></> : <p className="muted">No ORPHAcode match is claimed for this trial condition.</p>}</Card><Card><div className="card-top"><div><h2>Public trial-site history</h2><p>Ranked only by the number of matching public ClinicalTrials.gov records.</p></div><Badge kind="gray">{result.hospitals.length} sites</Badge></div>{result.hospitals.length ? <div className="table-scroll"><table><thead><tr><th>Hospital / site</th><th>Location</th><th>Historical records</th><th>Why shown</th></tr></thead><tbody>{result.hospitals.map(site => <tr key={`${site.name}-${site.city}`}><td><b>{site.name}</b></td><td>{[site.city, site.region, site.country].filter(Boolean).join(', ')}</td><td>{site.historical_trial_count}</td><td>{site.explanation} {site.source_urls.slice(0, 2).map(url => <a key={url} href={url} target="_blank" rel="noreferrer">Source ↗ </a>)}</td></tr>)}</tbody></table></div> : <p className="empty-state">No public matching sites were returned.</p>}</Card><Card><h2>Keep the criterion, widen outreach</h2>{result.strategies.map(item => <div className="strategy" key={item.rule_id}><b>{item.rule_id}</b><p>{item.criterion}</p><p><b>Option A:</b> {item.option_a}</p><p><b>Option B:</b> {item.option_b}</p>{item.safety_sensitive && <Badge kind="amber">Safety-sensitive · clinical review required</Badge>}</div>)}</Card><Card><h2>Patient-network research</h2><p>Use <a href={result.nord_url} target="_blank" rel="noreferrer">NORD ↗</a> to investigate relevant public advocacy organisations and registries. This does not imply registry access, endorsement, or a partnership.</p><p>Sources: {result.sources.map(source => <a key={source.name} href={source.url} target="_blank" rel="noreferrer">{source.name} ({source.access}) ↗ </a>)}</p></Card></div>
+}
+
 function Review({ workspace, decide }: { workspace: Workspace; decide: (id: string, decision: ReviewDecision) => void }) {
   const [reasons, setReasons] = useState<Record<string, string>>({})
   const comparison = workspace.comparison
@@ -107,7 +113,8 @@ export default function App() {
   const [health, setHealth] = useState<ApiHealth | null>(null)
   const [chalkCheck, setChalkCheck] = useState<ChalkCheck | null>(null), [checkingChalk, setCheckingChalk] = useState(false)
   const [catalog, setCatalog] = useState<PopulationCatalog | null>(null), [variables, setVariables] = useState<Record<string, VariableMeta>>({})
-  const [catalogError, setCatalogError] = useState<string | null>(null), [error, setError] = useState<string | null>(null), [busy, setBusy] = useState<'analysis' | 'compare' | null>(null), [selectedId, setSelectedId] = useState('')
+  const [catalogError, setCatalogError] = useState<string | null>(null), [error, setError] = useState<string | null>(null), [busy, setBusy] = useState<'analysis' | 'compare' | 'rare' | null>(null), [selectedId, setSelectedId] = useState('')
+  const [rareReach, setRareReach] = useState<RareReachResponse | null>(null)
   const option = catalog?.options.find(item => item.mode === mode)
   const population = useMemo<PopulationChoice>(() => ({ mode, size: mode === 'fixed' ? option?.size ?? 500 : size, seed: mode === 'fixed' ? 0 : seed, version: option?.version, ...(option?.cohort_id ? { cohort_id: option.cohort_id } : {}) }), [mode, size, seed, option])
   const context = JSON.stringify([inputMode, nctId.trim().toUpperCase(), text, population, useLlm])
@@ -136,7 +143,7 @@ export default function App() {
   }
   async function analyze() {
     cancel(); const requestId = sequence.current; const abort = new AbortController(); controller.current = abort
-    dispatch({ type: 'reset', context }); setBusy('analysis'); setError(null)
+    dispatch({ type: 'reset', context }); setRareReach(null); setBusy('analysis'); setError(null)
     try {
       const result = await analyzeTrial({ ...(inputMode === 'nct' ? { nct_id: nctId.trim().toUpperCase() } : { eligibility_text: text }), use_llm: useLlm }, population, abort.signal)
       if (requestId !== sequence.current) return
@@ -157,6 +164,13 @@ export default function App() {
     } catch (cause) { if (!abort.signal.aborted && requestId === sequence.current) setError(String(cause)) }
     finally { if (requestId === sequence.current) setBusy(null) }
   }
+  async function loadRareReach() {
+    if (!analysis?.trial.nct_id) return
+    cancel(); const requestId = sequence.current; const abort = new AbortController(); controller.current = abort; setBusy('rare'); setError(null)
+    try { const result = await getRareReach(analysis.trial.nct_id, workspace.draft, abort.signal); if (requestId === sequence.current) setRareReach(result) }
+    catch (cause) { if (!abort.signal.aborted && requestId === sequence.current) setError(String(cause)) }
+    finally { if (requestId === sequence.current) setBusy(null) }
+  }
   function edit(field: 'value' | 'value_max', value: number) { if (selected) { cancel(); dispatch({ type: 'edit', id: selected.id, field, value }) } }
   const go = (next: Tab) => { setTab(next); setMobileOpen(false) }
   return <div className="app-shell"><aside className={`sidebar ${mobileOpen ? 'shown' : ''}`}><div className="logo-wrap"><div className="logo-mark"><Leaf size={22} /></div><div><div className="logo-text">Wind Tunnel<span className="logo-period">.</span></div><div className="logo-sub">Clinical trial intelligence</div></div><button className="close-mobile" onClick={() => setMobileOpen(false)} aria-label="Close menu"><X size={19} /></button></div><div className="workspace-label">WORKSPACE</div><nav className="nav">{tabs.map(item => <button key={item.id} className={`nav-item ${tab === item.id ? 'active' : ''}`} onClick={() => go(item.id)}><item.icon size={18} />{item.name}</button>)}</nav><div className="side-bottom"><div className="help-box"><BookOpen size={19} /><strong>Explore a synthetic example</strong><p>Use the real parser and engine without a registry request.</p><button onClick={() => { cancel(); setInputMode('text'); setMode(defaultPopulationMode('text')); setText(exampleProtocol); go('overview') }}>Load example text <ArrowRight size={15} /></button></div><div className="side-footer"><ShieldCheck size={17} /> Public and synthetic data only</div></div></aside>
@@ -175,6 +189,7 @@ export default function App() {
           <div className="scenario-grid connected-grid"><Card className="criteria-card"><div className="card-top"><h3>Parsed rules</h3><Badge kind="gray">{baseline.length}</Badge></div><div className="criteria-list">{workspace.draft.map(rule => <button key={rule.id} className={`criterion-item ${selected?.id === rule.id ? 'selected' : ''}`} onClick={() => setSelectedId(rule.id)}><span className="criterion-number">{rule.id}</span><span><strong>{variables[rule.variable ?? '']?.label ?? readable(rule.category)}</strong><small>{rule.clause ?? rule.text}</small></span><Badge kind={rule.simulatable && option?.available_variables.includes(rule.variable ?? '') ? 'sage' : 'gray'}>{rule.simulatable ? option?.available_variables.includes(rule.variable ?? '') ? 'Modeled' : 'Unavailable' : 'Unmodeled'}</Badge></button>)}</div></Card>{selected && <RuleEditor rule={selected} original={baseline.find(r => r.id === selected.id)!} metadata={variables[selected.variable ?? '']} available={Boolean(option?.available_variables.includes(selected.variable ?? ''))} onEdit={edit} />}</div>
           {workspace.comparison ? <div className="results-stack comparison-stack"><Comparison result={workspace.comparison} /><button className="btn primary" onClick={() => go('review')}>Review proposed changes <FileCheck2 size={16} /></button><Results result={workspace.comparison.proposed} rules={workspace.draft} /></div> : <div className="notice"><CircleHelp size={17} />{changes.length ? `${changes.length} edited rule(s). Compare the draft to update results.` : 'Select a supported numeric rule to explore a threshold change.'}</div>}
         </>}
+        {tab === 'rare' && (analysis.trial.nct_id ? <RareReach result={rareReach} loading={busy === 'rare'} onLoad={loadRareReach} /> : <Card><div className="empty-view"><MapPinned size={30} /><h2>RareReach needs an NCT ID</h2><p>Load a public ClinicalTrials.gov trial first. Pasted text has no registry condition or public site history to research.</p><button className="btn primary" onClick={() => go('overview')}>Load a trial <ArrowRight size={16} /></button></div></Card>)}
         {tab === 'review' && <Review workspace={workspace} decide={(id, decision) => dispatch({ type: 'decide', id, decision })} />}
       </>}
     </main><footer className="footer"><div><Leaf size={15} /> Wind Tunnel · Qualified researchers make final decisions.</div><span>Synthetic estimates · Not clinical decision support</span></footer></div>

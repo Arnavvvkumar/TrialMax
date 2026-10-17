@@ -20,12 +20,13 @@ from .ctgov import TrialNotFound, fetch_trial
 from .cohorts import population_catalog, simulate_population, compare_population, trial_population_warnings
 from .models import (
     AnalyzeRequest, AnalyzeResponse, CompareRequest, CompareResult, ScenarioReviewRequest,
-    ScenarioReviewResponse, SimulateRequest,
+    ScenarioReviewResponse, SimulateRequest, RareReachRequest, RareReachResponse,
     SimulationResult, TrialInfo,
 )
 from .pipeline import parse_eligibility
 from .registry import registry_rules
 from .scenario_agent import review_scenario
+from .rare_reach import RareReachError, build_rare_reach
 from .variables import VARIABLES
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(name)s %(levelname)s %(message)s")
@@ -215,6 +216,20 @@ def compare_rules(req: CompareRequest):
 @app.post("/api/scenario-review", response_model=ScenarioReviewResponse, dependencies=[Depends(heavy_request)])
 def scenario_review(req: ScenarioReviewRequest):
     return review_scenario(req.baseline_rules, req.proposed_rules, req.population, req.source)
+
+
+@app.post("/api/rare-reach", response_model=RareReachResponse, dependencies=[Depends(heavy_request)])
+def rare_reach(req: RareReachRequest):
+    """Research public recruitment channels without accessing patient data."""
+    try:
+        return build_rare_reach(req.nct_id, req.rules)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+    except TrialNotFound as exc:
+        raise HTTPException(status_code=404, detail=str(exc))
+    except (RareReachError, httpx.HTTPError) as exc:
+        log.warning("RareReach request failed: %s", exc)
+        raise HTTPException(status_code=502, detail="RareReach could not retrieve public source data; try again.")
 
 
 # A built frontend can be served on the same origin as the API in production.
