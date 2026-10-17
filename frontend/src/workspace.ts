@@ -10,9 +10,10 @@ export interface Workspace {
   decisions: Record<string, ReviewDecision>
 }
 export function emptyWorkspace(context: string): Workspace { return { context, analysis: null, draft: [], comparison: null, decisions: {} } }
+export type ThresholdEditAction = { type: 'edit'; id: string; value: number; field: 'value' | 'value_max' }
 type Action = { type: 'reset'; context: string }
   | { type: 'analyzed'; context: string; result: AnalyzeResponse }
-  | { type: 'edit'; id: string; value: number; field: 'value' | 'value_max' }
+  | ThresholdEditAction
   | { type: 'compared'; context: string; draft: Rule[]; result: CompareResult }
   | { type: 'decide'; id: string; decision: ReviewDecision }
 

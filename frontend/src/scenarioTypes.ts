@@ -46,3 +46,21 @@ export interface CompareResult {
   review_safety_critical_rule_ids: string[]; safety_review_rule_ids: string[]; transitions: Record<string, number>; warnings: string[]
 }
 export interface ReviewDecision { decision: 'accepted' | 'rejected'; reason: string; at: string }
+
+export interface HiddenFilter { component: number; label: string; explained_variance_ratio: number; loadings: Record<string, number>; top_rule_ids: string[] }
+export interface FilterSummary {
+  disclosure: string; components: HiddenFilter[]; explained_variance_total: number; variance_target_reached: boolean
+  included_rule_ids: string[]; dropped_rule_ids: string[]
+  redundancy_pairs: { rule_a_id: string; rule_b_id: string; jaccard: number; both_fail_n: number; explanation: string }[]
+}
+export interface AutopilotEdit {
+  rule_id: string; variable: string; field: 'value' | 'value_max'; from: number; to: number; unit: string | null
+  marginal_gain: number; cumulative_gain: number; component_label: string; review_flag: boolean; rationale: string
+}
+export interface AutopilotResponse {
+  cohort_id: string; baseline_modeled_eligible_n: number | null; max_achievable_gain: number; target_gain: number
+  target_fraction: number; target_reached: boolean; status: 'target_reached' | 'best_found_below_target' | 'no_plan'; reason: string
+  plan: AutopilotEdit[]; also_considered: { rule_id: string; field: string | null; to: number | null; gain: number | null; reason: string }[]
+  blocked_rules: { rule_id: string; label: string; reason: string }[]; filters: FilterSummary
+  simulation_count: number; simulation_cap: number; summary: string; narration_source: 'template' | 'chalk'; assumptions: string[]; warnings: string[]
+}

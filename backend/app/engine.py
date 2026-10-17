@@ -36,16 +36,12 @@ def _column(raw: np.ndarray, boolean: bool) -> tuple[np.ndarray, np.ndarray]:
     return np.array([float(v) if ok else 0.0 for v, ok in zip(raw, known)]), known
 
 
-def evaluate(rules: list[Rule], columns: dict[str, np.ndarray], cohort: CohortInfo,
-             assumptions: list[str], patient_ids: list[str] | None = None
-             ) -> tuple[SimulationResult, np.ndarray, np.ndarray]:
+def _prepare_masks(rules: list[Rule], columns: dict[str, np.ndarray], n: int):
+    """Shared mask preparation; unknown values can never become failures."""
     ensure_unique_ids(rules)
-    n = cohort.population_n
     zero, all_unknown = np.zeros(n, dtype=bool), np.ones(n, dtype=bool)
     prepared: dict[str, tuple[np.ndarray, np.ndarray]] = {}
-    failures, unknowns, modeled = {}, {}, []
-    fail_count = np.zeros(n, dtype=np.int16)
-    any_unknown, modeled_unknown, modeled_failure = zero.copy(), zero.copy(), zero.copy()
+    masks = {}
     for rule in rules:
         missing = zero if rule.not_applicable else all_unknown
         failed = zero
@@ -56,10 +52,32 @@ def evaluate(rules: list[Rule], columns: dict[str, np.ndarray], cohort: CohortIn
             cond = condition_mask(rule, {rule.variable: values})
             failed = known & (~cond if rule.kind == "inclusion" else cond)
             missing = ~known
-            if known.any():
-                modeled.append(rule.id)
-                modeled_unknown |= missing
-                modeled_failure |= failed
+        masks[rule.id] = (failed, missing)
+    return masks, prepared
+
+
+def rule_masks(rules: list[Rule], columns: dict[str, np.ndarray], *, population_n: int | None = None
+               ) -> dict[str, tuple[np.ndarray, np.ndarray]]:
+    """Known-failure and unknown masks for every rule, using the evaluator's exact semantics."""
+    n = population_n if population_n is not None else len(next(iter(columns.values()), []))
+    return _prepare_masks(rules, columns, n)[0]
+
+
+def evaluate(rules: list[Rule], columns: dict[str, np.ndarray], cohort: CohortInfo,
+             assumptions: list[str], patient_ids: list[str] | None = None
+             ) -> tuple[SimulationResult, np.ndarray, np.ndarray]:
+    n = cohort.population_n
+    zero = np.zeros(n, dtype=bool)
+    masks, prepared = _prepare_masks(rules, columns, n)
+    failures, unknowns, modeled = {}, {}, []
+    fail_count = np.zeros(n, dtype=np.int16)
+    any_unknown, modeled_unknown, modeled_failure = zero.copy(), zero.copy(), zero.copy()
+    for rule in rules:
+        failed, missing = masks[rule.id]
+        if rule.simulatable and not rule.not_applicable and rule.variable in prepared and (~missing).any():
+            modeled.append(rule.id)
+            modeled_unknown |= missing
+            modeled_failure |= failed
         failures[rule.id], unknowns[rule.id] = failed, missing
         fail_count += failed
         any_unknown |= missing

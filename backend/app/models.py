@@ -302,3 +302,91 @@ class CompareResult(BaseModel):
     modeled_transitions: dict[str, int] = Field(default_factory=dict)
     transitions: dict[str, int] = Field(default_factory=dict)
     warnings: list[str] = Field(default_factory=list)
+
+
+class HiddenFilter(BaseModel):
+    component: int
+    label: str
+    explained_variance_ratio: float
+    loadings: dict[str, float]
+    top_rule_ids: list[str]
+
+
+class RedundancyPair(BaseModel):
+    rule_a_id: str
+    rule_b_id: str
+    jaccard: float
+    both_fail_n: int
+    explanation: str
+
+
+class FilterSummary(BaseModel):
+    disclosure: str = "Exploratory summary of binary pass/fail data; not a statistical test. Unknowns are not failures."
+    components: list[HiddenFilter] = Field(default_factory=list)
+    explained_variance_total: float = 0
+    variance_target_reached: bool = False
+    included_rule_ids: list[str] = Field(default_factory=list)
+    dropped_rule_ids: list[str] = Field(default_factory=list)
+    redundancy_pairs: list[RedundancyPair] = Field(default_factory=list)
+
+
+class AutopilotRequest(BaseModel):
+    rules: list[Rule] = Field(max_length=MAX_RULES)
+    population: PopulationChoice = Field(default_factory=PopulationChoice)
+    max_edits: int = Field(default=3, ge=1, le=5)
+    target_fraction: float = Field(default=0.8, ge=0.5, le=1.0)
+    use_llm: bool = False
+
+    @model_validator(mode="after")
+    def _unique(self):
+        ensure_unique_ids(self.rules)
+        return self
+
+
+class AutopilotEdit(BaseModel):
+    rule_id: str
+    variable: str
+    field: Literal["value", "value_max"]
+    from_value: float = Field(alias="from")
+    to: float
+    unit: Optional[str]
+    marginal_gain: int
+    cumulative_gain: int
+    component_label: str
+    review_flag: bool
+    rationale: str = Field(max_length=300)
+
+
+class AutopilotConsidered(BaseModel):
+    rule_id: str
+    field: Optional[Literal["value", "value_max"]] = None
+    to: Optional[float] = None
+    gain: Optional[int] = None
+    reason: str
+
+
+class AutopilotBlocked(BaseModel):
+    rule_id: str
+    label: str
+    reason: str
+
+
+class AutopilotResponse(BaseModel):
+    cohort_id: str
+    baseline_modeled_eligible_n: Optional[int]
+    max_achievable_gain: int
+    target_gain: int
+    target_fraction: float
+    target_reached: bool
+    status: Literal["target_reached", "best_found_below_target", "no_plan"]
+    reason: str
+    plan: list[AutopilotEdit]
+    also_considered: list[AutopilotConsidered]
+    blocked_rules: list[AutopilotBlocked]
+    filters: FilterSummary
+    simulation_count: int
+    simulation_cap: int
+    summary: str = Field(max_length=600)
+    narration_source: Literal["template", "chalk"] = "template"
+    assumptions: list[str]
+    warnings: list[str]

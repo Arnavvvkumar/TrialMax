@@ -147,11 +147,11 @@ def _client():
     )
 
 
-def call_model(kind: str, text: str, *, client=None) -> str:
+def call_model(kind: str, text: str, *, client=None, system_prompt: str | None = None, user_prompt: str | None = None) -> str:
     resp = (client or _client()).chat.completions.create(
         model=config.LLM_MODEL,
-        messages=[{"role": "system", "content": SYSTEM_PROMPT},
-                  {"role": "user", "content": build_prompt(kind, text)}],
+        messages=[{"role": "system", "content": system_prompt if system_prompt is not None else SYSTEM_PROMPT},
+                  {"role": "user", "content": user_prompt if user_prompt is not None else build_prompt(kind, text)}],
         # Chalk's quota admission requires an explicit conservative output budget.
         max_completion_tokens=config.LLM_MAX_OUTPUT_TOKENS,
     )

@@ -19,6 +19,7 @@ from .chalk_trials import ChalkTrialError, ChalkTrialNotFound, fetch_chalk_trial
 from .ctgov import TrialNotFound, fetch_trial
 from .cohorts import population_catalog, simulate_population, compare_population, trial_population_warnings
 from .models import (
+    AutopilotRequest, AutopilotResponse,
     AnalyzeRequest, AnalyzeResponse, CompareRequest, CompareResult, ScenarioReviewRequest,
     ScenarioReviewResponse, SimulateRequest, RareReachRequest, RareReachResponse,
     SimulationResult, TrialInfo,
@@ -28,6 +29,7 @@ from .registry import registry_rules
 from .scenario_agent import review_scenario
 from .rare_reach import RareReachError, build_rare_reach
 from .variables import VARIABLES
+from .autopilot import run_autopilot
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(name)s %(levelname)s %(message)s")
 log = logging.getLogger("windtunnel.api")
@@ -211,6 +213,11 @@ def simulate_rules(req: SimulateRequest):
 @app.post("/api/compare", response_model=CompareResult, dependencies=[Depends(heavy_request)])
 def compare_rules(req: CompareRequest):
     return compare_population(req.baseline_rules, req.proposed_rules, req.population)
+
+
+@app.post("/api/autopilot", response_model=AutopilotResponse, dependencies=[Depends(heavy_request)])
+def suggest_autopilot(req: AutopilotRequest):
+    return run_autopilot(req)
 
 
 @app.post("/api/scenario-review", response_model=ScenarioReviewResponse, dependencies=[Depends(heavy_request)])

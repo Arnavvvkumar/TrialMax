@@ -1,4 +1,4 @@
-import type { AnalyzeResponse, ApiHealth, ChalkCheck, CompareResult, PopulationCatalog, PopulationChoice, RareReachResponse, Rule, SimulationResult, VariableMeta } from './scenarioTypes'
+import type { AnalyzeResponse, ApiHealth, AutopilotResponse, ChalkCheck, CompareResult, PopulationCatalog, PopulationChoice, RareReachResponse, Rule, SimulationResult, VariableMeta } from './scenarioTypes'
 
 const API_BASE = (import.meta.env.VITE_API_BASE_URL ?? '').replace(/\/$/, '')
 // An optional application access token is visible to the browser. Never put a Chalk key here.
@@ -31,3 +31,6 @@ export function compareCriteria(baseline_rules: Rule[], proposed_rules: Rule[], 
   return request<CompareResult>('/api/compare', { baseline_rules, proposed_rules, population }, signal)
 }
 export function getRareReach(nct_id: string, rules: Rule[], signal?: AbortSignal) { return request<RareReachResponse>('/api/rare-reach', { nct_id, rules }, signal) }
+export function suggestAutopilot(rules: Rule[], population: PopulationChoice, max_edits: number, target_fraction: number, use_llm: boolean, signal?: AbortSignal) {
+  return request<AutopilotResponse>('/api/autopilot', { rules, population, max_edits, target_fraction, use_llm }, signal)
+}
