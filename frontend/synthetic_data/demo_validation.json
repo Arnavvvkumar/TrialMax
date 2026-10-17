@@ -1,0 +1,41 @@
+{
+  "seed": 20261016,
+  "population": 500,
+  "patient_status_counts": {
+    "eligible": 28,
+    "excluded": 450,
+    "unknown": 22
+  },
+  "per_criterion": {
+    "C1": {
+      "pass": 491,
+      "fail": 0,
+      "unknown": 9
+    },
+    "C2": {
+      "pass": 268,
+      "fail": 205,
+      "unknown": 27
+    },
+    "C3": {
+      "pass": 136,
+      "fail": 341,
+      "unknown": 23
+    },
+    "C4": {
+      "pass": 411,
+      "fail": 62,
+      "unknown": 27
+    },
+    "C5": {
+      "pass": 412,
+      "fail": 55,
+      "unknown": 33
+    },
+    "C6": {
+      "pass": 321,
+      "fail": 160,
+      "unknown": 19
+    }
+  }
+}

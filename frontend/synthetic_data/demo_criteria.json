@@ -1,0 +1,60 @@
+{
+  "trial_id": "SYNTHETIC-DEMO",
+  "not_real_protocol": true,
+  "criteria": [
+    {
+      "id": "C1",
+      "field": "age_years",
+      "operator": ">=",
+      "value": 18,
+      "unit": "years",
+      "purpose": "minimum age",
+      "review_required": false
+    },
+    {
+      "id": "C2",
+      "field": "ecog_score",
+      "operator": "<=",
+      "value": 1,
+      "unit": "ECOG",
+      "purpose": "performance status",
+      "review_required": true
+    },
+    {
+      "id": "C3",
+      "field": "egfr_mutation",
+      "operator": "==",
+      "value": "positive",
+      "unit": null,
+      "purpose": "biomarker enrichment",
+      "review_required": true
+    },
+    {
+      "id": "C4",
+      "field": "anc_cells_ul",
+      "operator": ">=",
+      "value": 1500,
+      "unit": "cells/uL",
+      "purpose": "hematologic adequacy",
+      "review_required": true
+    },
+    {
+      "id": "C5",
+      "field": "platelets_cells_ul",
+      "operator": ">=",
+      "value": 100000,
+      "unit": "cells/uL",
+      "purpose": "hematologic adequacy",
+      "review_required": true
+    },
+    {
+      "id": "C6",
+      "field": "egfr_kidney_ml_min_1_73m2",
+      "operator": ">=",
+      "value": 60,
+      "unit": "mL/min/1.73m²",
+      "purpose": "renal function",
+      "review_required": true
+    }
+  ]
+}
