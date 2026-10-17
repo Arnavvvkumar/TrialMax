@@ -97,10 +97,28 @@ class FunnelStep(BaseModel):
     label: str
     remaining_n: int
     remaining_pct: float
+    unknown_n: int = 0
+
+
+class CriterionResult(BaseModel):
+    rule_id: str
+    status: Literal["pass", "fail", "unknown"]
+
+
+class PatientResult(BaseModel):
+    patient_id: str
+    criteria: list[CriterionResult]
+    overall_status: Literal["pass", "fail", "unknown"]
+
+
+class RuleOverlap(BaseModel):
+    rule_a_id: str
+    rule_b_id: str
+    patient_n: int
 
 
 class ExcludedPatient(BaseModel):
-    patient_id: int
+    patient_id: str | int
     failed_rule_ids: list[str]
     attributes: dict[str, float | int | bool]
 
@@ -123,6 +141,8 @@ class SimulationResult(BaseModel):
     worst_rule_id: Optional[str]
     sample_excluded: list[ExcludedPatient]
     assumptions: list[str]
+    patient_results: list[PatientResult] = Field(default_factory=list)
+    rule_overlaps: list[RuleOverlap] = Field(default_factory=list)
 
 
 class AnalyzeRequest(BaseModel):
@@ -143,8 +163,10 @@ class AnalyzeResponse(BaseModel):
 
 class SimulateRequest(BaseModel):
     rules: list[Rule] = Field(max_length=MAX_RULES)
-    population_size: int = POPULATION_FIELD
-    seed: int = SEED_FIELD
+    # Kept temporarily for callers of the earlier random-population endpoint.
+    # /api/simulate evaluates the checked-in fixed cohort and ignores both fields.
+    population_size: int = Field(default=10000, ge=100, le=200000, description="Deprecated; ignored by /api/simulate.")
+    seed: int = Field(default=42, ge=0, le=2**32 - 1, description="Deprecated; ignored by /api/simulate.")
 
     @model_validator(mode="after")
     def _unique(self):
