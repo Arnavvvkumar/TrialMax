@@ -6,7 +6,7 @@ project. Read all the context below before reviewing.
 
 ## 1. What the project is
 
-**Wind Tunnel** is a web app for clinical-trial designers. A researcher pastes a ClinicalTrials.gov
+**CliNova** is a web app for clinical-trial designers. A researcher pastes a ClinicalTrials.gov
 trial ID (or eligibility text). The app:
 
 1. Fetches the trial's eligibility criteria from the public ClinicalTrials.gov API (v2).

@@ -1,4 +1,4 @@
-"""Wind Tunnel API. Run from backend/:  uvicorn app.main:app --reload"""
+"""CliNova API. Run from backend/:  uvicorn app.main:app --reload"""
 from __future__ import annotations
 
 import hmac
@@ -31,7 +31,7 @@ from .variables import VARIABLES
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(name)s %(levelname)s %(message)s")
 log = logging.getLogger("windtunnel.api")
 
-app = FastAPI(title="Wind Tunnel API", version="0.2.0")
+app = FastAPI(title="CliNova API", version="0.2.0")
 
 
 class BodySizeLimitMiddleware:
