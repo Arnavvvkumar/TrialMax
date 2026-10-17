@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { emptyWorkspace, workspaceReducer, validDraft, reviewedRules } from '../src/workspace.ts'
+import { defaultPopulationMode, emptyWorkspace, workspaceReducer, validDraft, reviewedRules } from '../src/workspace.ts'
 import type { AnalyzeResponse, CompareResult, Rule, SimulationResult } from '../src/scenarioTypes.ts'
 
 const rule: Rule = { id: 'I1', kind: 'inclusion', text: 'Age >=18 years', clause: null, category: 'age', variable: 'age', operator: '>=', value: 18, value_max: null, unit: 'years', simulatable: true, fidelity: 'exact', purpose: 'safety', findability: 'structured_field', safety_critical: false, parsed_by: 'rules', source: 'text', notes: ['Source preserved'] }
@@ -9,6 +9,11 @@ const cohort = { id: 'fixed:v1:hash', mode: 'fixed' as const, version: 'v1', lab
 const simulation = { cohort } as SimulationResult
 const analysis = { rules: [rule], simulation } as AnalyzeResponse
 const decision = { decision: 'accepted' as const, reason: 'Reviewed for test', at: '2026-10-17T00:00:00Z' }
+
+test('registry lookups default to generated exploration; pasted examples use the fixed cohort', () => {
+  assert.equal(defaultPopulationMode('nct'), 'generated')
+  assert.equal(defaultPopulationMode('text'), 'fixed')
+})
 function loaded() { return workspaceReducer(emptyWorkspace('trial-A'), { type: 'analyzed', context: 'trial-A', result: analysis }) }
 function compared() {
   const state = workspaceReducer(loaded(), { type: 'edit', id: 'I1', field: 'value', value: 21 })

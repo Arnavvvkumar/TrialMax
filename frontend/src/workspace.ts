@@ -1,4 +1,8 @@
-import type { AnalyzeResponse, CompareResult, ReviewDecision, Rule } from './scenarioTypes.ts'
+import type { AnalyzeResponse, CompareResult, PopulationMode, ReviewDecision, Rule } from './scenarioTypes.ts'
+
+export function defaultPopulationMode(source: 'nct' | 'text'): PopulationMode {
+  return source === 'nct' ? 'generated' : 'fixed'
+}
 
 export interface Workspace {
   context: string; analysis: AnalyzeResponse | null; draft: Rule[]; comparison: CompareResult | null

@@ -14,9 +14,9 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, FileResponse
 from fastapi.staticfiles import StaticFiles
 
-from . import config
+from . import config, llm
 from .ctgov import TrialNotFound, fetch_trial
-from .cohorts import population_catalog, simulate_population, compare_population
+from .cohorts import population_catalog, simulate_population, compare_population, trial_population_warnings
 from .models import (
     AnalyzeRequest, AnalyzeResponse, CompareRequest, CompareResult, SimulateRequest,
     SimulationResult, TrialInfo,
@@ -138,12 +138,20 @@ def _get_trial(nct_id: str) -> TrialInfo:
 
 @app.get("/api/health")
 def health():
-    return {"status": "ok", "llm_configured": config.llm_configured(), "model": config.LLM_MODEL or None}
+    missing = [name for name in ("CHALK_ROUTER_API_KEY", "CHALK_ENV_ID", "LLM_MODEL") if not getattr(config, name)]
+    return {"status": "ok", "llm_configured": config.llm_configured(), "model": config.LLM_MODEL or None,
+            "llm_status": "configured_not_verified" if not missing else "not_configured",
+            "llm_missing_configuration": missing}
 
 
 @app.get("/api/variables")
 def variables():
     return VARIABLES
+
+
+@app.post("/api/chalk/check", dependencies=[Depends(heavy_request)])
+def check_chalk():
+    return llm.check_connection()
 
 
 @app.get("/api/populations")
@@ -170,7 +178,7 @@ def analyze(req: AnalyzeRequest):
     rules = registry_rules(trial) + rules
     sim = simulate_population(rules, req.population)
     return AnalyzeResponse(trial=trial, rules=rules, simulation=sim, llm_used=llm_used,
-                           warnings=warnings + sim.warnings)
+                           warnings=warnings + sim.warnings + trial_population_warnings(trial, req.population.mode))
 
 
 @app.post("/api/simulate", response_model=SimulationResult, dependencies=[Depends(heavy_request)])

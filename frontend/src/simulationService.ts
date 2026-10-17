@@ -1,4 +1,4 @@
-import type { AnalyzeResponse, CompareResult, PopulationCatalog, PopulationChoice, Rule, SimulationResult, VariableMeta } from './scenarioTypes'
+import type { AnalyzeResponse, ApiHealth, ChalkCheck, CompareResult, PopulationCatalog, PopulationChoice, Rule, SimulationResult, VariableMeta } from './scenarioTypes'
 
 const API_BASE = (import.meta.env.VITE_API_BASE_URL ?? '').replace(/\/$/, '')
 // An optional application access token is visible to the browser. Never put a Chalk key here.
@@ -18,6 +18,8 @@ async function request<T>(path: string, body?: unknown, signal?: AbortSignal): P
 }
 
 export function getPopulations(signal?: AbortSignal) { return request<PopulationCatalog>('/api/populations', undefined, signal) }
+export function getHealth(signal?: AbortSignal) { return request<ApiHealth>('/api/health', undefined, signal) }
+export function checkChalk(signal?: AbortSignal) { return request<ChalkCheck>('/api/chalk/check', {}, signal) }
 export function getVariables(signal?: AbortSignal) { return request<Record<string, VariableMeta>>('/api/variables', undefined, signal) }
 export function analyzeTrial(input: { nct_id?: string; eligibility_text?: string; use_llm: boolean }, population: PopulationChoice, signal?: AbortSignal) {
   return request<AnalyzeResponse>('/api/analyze', { ...input, population }, signal)

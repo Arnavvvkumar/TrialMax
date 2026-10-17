@@ -3,6 +3,8 @@ export interface PopulationChoice { mode: PopulationMode; size: number; seed: nu
 export interface CohortInfo { id: string; mode: PopulationMode; version: string; label: string; population_n: number; seed: number | null; available_variables: string[] }
 export interface PopulationOption { mode: PopulationMode; version: string; label: string; size: number; seed: number | null; cohort_id: string | null; available_variables: string[] }
 export interface PopulationCatalog { default_mode: PopulationMode; options: PopulationOption[] }
+export interface ApiHealth { status: string; llm_configured: boolean; model: string | null; llm_status: 'not_configured' | 'configured_not_verified'; llm_missing_configuration: string[] }
+export interface ChalkCheck { status: string; message: string; model: string | null; http_status: number | null; checked_at: string; elapsed_ms: number }
 export type RuleOperator = '>=' | '<=' | '>' | '<' | '==' | 'between' | 'present' | 'absent'
 export interface Rule {
   id: string; kind: 'inclusion' | 'exclusion'; text: string; clause: string | null
@@ -19,14 +21,14 @@ export interface TrialInfo {
 }
 export interface RuleImpact { rule_id: string; simulated: boolean; fail_n: number; fail_pct: number; unique_fail_n: number; unique_fail_pct: number; pass_n: number; unknown_n: number }
 export interface FunnelStep { rule_id: string | null; label: string; remaining_n: number; remaining_pct: number; unknown_n: number }
-export interface PatientResult { patient_id: string; overall_status: 'pass' | 'fail' | 'unknown'; criteria: { rule_id: string; status: 'pass' | 'fail' | 'unknown'; value: number | boolean | null }[] }
+export interface PatientResult { patient_id: string; overall_status: 'pass' | 'fail' | 'unknown'; modeled_status: 'pass' | 'fail' | 'unknown'; criteria: { rule_id: string; status: 'pass' | 'fail' | 'unknown'; value: number | boolean | null }[] }
 export interface SimulationResult {
   cohort: CohortInfo; population_n: number; seed: number; estimate_label: string
   eligible_n: number | null; eligible_pct: number | null; excluded_n: number; unknown_n: number
-  modeled_eligible_n: number | null; modeled_unknown_n: number; complete: boolean; coverage_pct: number | null
+  modeled_eligible_n: number | null; modeled_eligible_pct: number | null; modeled_unknown_n: number; complete: boolean; coverage_pct: number | null
   modeled_rule_ids: string[]; approximate_rule_ids: string[]; unmodeled_rule_ids: string[]
   not_applicable_rule_ids: string[]; not_simulated_rule_ids: string[]; impacts: RuleImpact[]
-  funnel: FunnelStep[]; worst_rule_id: string | null; assumptions: string[]; warnings: string[]
+  funnel_basis: 'modeled_checks'; funnel: FunnelStep[]; worst_rule_id: string | null; assumptions: string[]; warnings: string[]
   patient_results: PatientResult[]; patient_results_complete: boolean
   rule_overlaps: { rule_a_id: string; rule_b_id: string; patient_n: number }[]; overlaps_truncated: boolean
 }
@@ -36,6 +38,7 @@ export interface CompareResult {
   cohort: CohortInfo; baseline: SimulationResult; proposed: SimulationResult
   eligible_change_n: number | null; eligible_change_pct_points: number | null
   newly_eligible_n: number | null; newly_excluded_n: number | null; modeled_eligible_change_n: number | null
+  modeled_eligible_change_pct_points: number | null; modeled_newly_eligible_n: number | null; modeled_newly_excluded_n: number | null; modeled_transitions: Record<string, number>
   changes: RuleChange[]; changed_rule_ids: string[]; relaxed_safety_critical_rule_ids: string[]
   review_safety_critical_rule_ids: string[]; safety_review_rule_ids: string[]; transitions: Record<string, number>; warnings: string[]
 }

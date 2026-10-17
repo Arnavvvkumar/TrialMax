@@ -34,12 +34,16 @@ For an offline demo, click **Load example text**, then **Load and analyze**. Thi
 
 | Mode | Data | Interpretation |
 | --- | --- | --- |
-| Fixed (default) | The checked-in 500 fictional NSCLC records in `frontend/synthetic_data/patients.json` | Same records and missing values on every run. Not representative of other populations. |
-| Generated | Reproducible adult oncology records, selected size and seed | Assumed distributions and simplified correlations; exploratory only. Some fixed-cohort biomarkers are unavailable. |
+| Fixed (pasted-text/example default) | The checked-in 500 fictional NSCLC records in `frontend/synthetic_data/patients.json` | Same records and missing values on every run. Not representative of other populations. |
+| Generated (registry-lookup default) | Reproducible adult oncology records, selected size and seed | Assumed distributions and simplified correlations; exploratory only. Some fixed-cohort biomarkers are unavailable. |
 
 These datasets are entirely synthetic, not Synthea. Neither validates diagnosis, histology, stage, treatment safety, actual recruitment, or real-world eligibility. Every result includes assumptions, coverage, approximation warnings, and a versioned cohort ID. Do not compare rates across different population modes as if they measured the same population.
 
 Each substantive check returns pass, fail, or unknown. A known failure excludes a record; otherwise any missing/unsupported requirement makes its overall result unknown. `eligible_n` is known passing all substantive checks, and is null when nothing can be modeled. `modeled_eligible_n` separately counts those passing the available checks. Administrative and permissive statements are shown but do not participate in patient classification. Incomplete or approximate rules are disclosed.
+
+The headline, rate and comparisons use `modeled_eligible_n`/`modeled_eligible_pct`. The funnel has `funnel_basis: "modeled_checks"` and applies only available modeled rules; its last row matches those counts, including missing values as unknown. Unsupported rules and fields absent from the selected cohort appear separately as **Not checked**, and remain unresolved in full-protocol and patient-level results. Patients have both `modeled_status` and `overall_status`. Modeled comparison deltas and transitions are explicitly prefixed `modeled_`; legacy unprefixed deltas retain full-protocol semantics. Passing the checked subset never confirms eligibility for the full protocol.
+
+Registry lookups start with generated exploration for broader field coverage; the user can explicitly select the fixed cohort. The app warns when the fixed NSCLC cohort is not a verified disease match, and discloses that even a shared disease label or a generated population does not establish representativeness.
 
 Changing the input, population mode, generated size, seed, or AI setting clears the baseline, draft comparison, and review decisions. Comparisons reuse exactly the same cohort. Safety-sensitive edits require a rationale before local acceptance; acceptance records a researcher decision and does not approve clinical safety or change the source protocol. Review records can be downloaded as JSON. Decisions are session-only; refresh clears them. A mix of accepted/rejected edits needs a fresh combined simulation before using its counts.
 
@@ -51,7 +55,7 @@ Changing the input, population mode, generated size, seed, or AI setting clears 
 {"mode": "generated", "size": 10000, "seed": 42}
 ```
 
-Omit it to use the fixed cohort, or send `{"mode":"fixed"}`. Fixed size and seed come from the file, so the supplied size/seed do not alter that dataset. Send the returned `version` and `cohort_id` with later calls to pin the baseline; stale or mismatched selections return 422. Generated cohort identity includes generator version, NumPy version, size, and seed. Changes to generator logic require incrementing its version.
+On `/api/analyze`, omitting population defaults NCT lookups to generated exploration (10,000, seed 42) and pasted text to fixed. `/api/simulate` and `/api/compare` default to fixed when population is omitted; clients should always send the baseline's explicit selection. Send `{"mode":"fixed"}` to explicitly choose the fixed cohort. Its supplied size/seed do not alter the checked-in dataset. Send the returned `version` and `cohort_id` with later calls to pin the baseline; stale or mismatched selections return 422. Generated cohort identity includes generator version, NumPy version, size, and seed. Changes to generator logic require incrementing its version.
 
 Legacy top-level `population_size` and `seed` are deprecated, validated but ignored; migrate clients to `population.size` and `population.seed`. The frontend uses the new contract throughout.
 
@@ -92,3 +96,7 @@ npm run build
 Tests cover parser fixtures, malformed LLM output, semantic validation, planted simulation outcomes, missing data, cohort identity across endpoints, safety comparisons, and frontend stale-state/review behavior. Live provider availability and deployment credentials require separate environment-specific checks.
 
 Chalk feature-store queries, hosted Chalk evals/sandboxes, comparable-trial benchmarks, site ranking and PDF reports are outside this integration. The current Chalk connection is the optional Model Gateway parser fallback; do not present the other capabilities as implemented.
+
+`GET /api/health` and the source-input view report missing Chalk configuration by variable name, without exposing credentials. A configured gateway is labeled **not verified** until tested; configuration alone does not prove authentication, quota or model availability. **Test live Chalk connection** calls `POST /api/chalk/check`: one fresh, uncached parser request, with retries disabled and a 15-second timeout. Success requires both a response and the expected validated age rule. Authentication, model permission, rate-limit and malformed-output failures are shown explicitly; failed checks disable the AI checkbox until a check passes. No provider error bodies or credentials are returned.
+
+The sponsor-provided settings are `CHALK_ENV_ID=clkdcdaf84e`, `LLM_MODEL=openai/gpt-6-sol` and `CHALK_BASE_URL=https://api.chalk.ai/v1/router`. Use the actual router key shared by its issuer in the private `CHALK_ROUTER_API_KEY` setting. A key without model access receives 403; changing code cannot grant that access. Restart the backend after changing `.env`. The sponsor reports a shared daily token allowance; the app retains its own work/time limits.

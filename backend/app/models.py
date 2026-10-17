@@ -132,6 +132,7 @@ class PatientResult(BaseModel):
     patient_id: str
     criteria: list[CriterionResult]
     overall_status: Literal["pass", "fail", "unknown"]
+    modeled_status: Literal["pass", "fail", "unknown"] = "unknown"
 
 
 class RuleOverlap(BaseModel):
@@ -156,6 +157,7 @@ class SimulationResult(BaseModel):
     excluded_n: int
     unknown_n: int
     modeled_eligible_n: Optional[int]
+    modeled_eligible_pct: Optional[float] = None
     modeled_unknown_n: int
     complete: bool
     coverage_pct: Optional[float]
@@ -165,6 +167,7 @@ class SimulationResult(BaseModel):
     not_applicable_rule_ids: list[str]
     not_simulated_rule_ids: list[str]
     impacts: list[RuleImpact]
+    funnel_basis: Literal["modeled_checks"] = "modeled_checks"
     funnel: list[FunnelStep]
     worst_rule_id: Optional[str]
     sample_excluded: list[ExcludedPatient]
@@ -183,6 +186,12 @@ class AnalyzeRequest(BaseModel):
     use_llm: bool = True
     population_size: int = POPULATION_FIELD
     seed: int = SEED_FIELD
+
+    @model_validator(mode="after")
+    def _registry_population_default(self):
+        if self.nct_id and "population" not in self.model_fields_set:
+            self.population = PopulationChoice(mode="generated", size=10000)
+        return self
 
 
 class AnalyzeResponse(BaseModel):
@@ -240,5 +249,9 @@ class CompareResult(BaseModel):
     review_safety_critical_rule_ids: list[str]
     safety_review_rule_ids: list[str] = Field(default_factory=list)
     modeled_eligible_change_n: Optional[int] = None
+    modeled_eligible_change_pct_points: Optional[float] = None
+    modeled_newly_eligible_n: Optional[int] = None
+    modeled_newly_excluded_n: Optional[int] = None
+    modeled_transitions: dict[str, int] = Field(default_factory=dict)
     transitions: dict[str, int] = Field(default_factory=dict)
     warnings: list[str] = Field(default_factory=list)

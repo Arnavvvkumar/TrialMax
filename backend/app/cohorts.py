@@ -9,12 +9,26 @@ import numpy as np
 
 from .engine import evaluate, PASS, FAIL, STATUS_NAMES
 from .fixed_patients import load_patients
-from .models import CohortInfo, CompareResult, PopulationChoice, Rule, RuleChange
+from .models import CohortInfo, CompareResult, PopulationChoice, Rule, RuleChange, TrialInfo
 from .population import ASSUMPTIONS, POPULATION_VERSION, generate_population
 from .simulate import classify_change, _critical, _RELAXING
 from .variables import VARIABLES
 
 FIXED_VERSION = "fixed-nsclc-v1"
+
+
+def trial_population_warnings(trial: TrialInfo, mode: str) -> list[str]:
+    if not trial.nct_id:
+        return []
+    if mode == "generated":
+        return ["The generated adult oncology population is generic, not matched to this trial's disease, stage or treatment. "
+                "Broader field coverage does not establish representativeness."]
+    conditions = " ".join(trial.conditions).lower().replace("-", " ")
+    if "nsclc" not in conditions and "non small cell lung" not in conditions:
+        return ["Population mismatch: the fixed fictional NSCLC cohort is not verified as a disease match for this trial. "
+                "Generated exploration offers broader field coverage, but neither population is validated for this trial."]
+    return ["The fixed fictional NSCLC cohort is not matched to this trial's stage, biomarkers or treatment; "
+            "a shared disease label does not establish representativeness."]
 
 
 @lru_cache(maxsize=1)
@@ -92,6 +106,7 @@ def compare_population(baseline: list[Rule], proposed: list[Rule], choice: Popul
         if critical or any(r is not None and r.purpose == "safety" for r in (old, new)):
             safety.append(rid)
     both = base.eligible_n is not None and prop.eligible_n is not None
+    modeled_both = base.modeled_eligible_n is not None and prop.modeled_eligible_n is not None
     transitions = {f"{a}_to_{b}": int(((before == i) & (after == j)).sum())
                    for i, a in enumerate(STATUS_NAMES) for j, b in enumerate(STATUS_NAMES)}
     return CompareResult(
@@ -103,6 +118,11 @@ def compare_population(baseline: list[Rule], proposed: list[Rule], choice: Popul
         changes=changes, changed_rule_ids=[r.rule_id for r in changes],
         relaxed_safety_critical_rule_ids=relaxed, review_safety_critical_rule_ids=review,
         safety_review_rule_ids=safety, transitions=transitions,
-        modeled_eligible_change_n=int((modeled_after == PASS).sum() - (modeled_before == PASS).sum()) if both else None,
+        modeled_eligible_change_n=prop.modeled_eligible_n - base.modeled_eligible_n if modeled_both else None,
+        modeled_eligible_change_pct_points=round(100 * (prop.modeled_eligible_n - base.modeled_eligible_n) / info.population_n, 2) if modeled_both else None,
+        modeled_newly_eligible_n=int(((modeled_before != PASS) & (modeled_after == PASS)).sum()) if modeled_both else None,
+        modeled_newly_excluded_n=int(((modeled_before != FAIL) & (modeled_after == FAIL)).sum()) if modeled_both else None,
+        modeled_transitions={f"{a}_to_{b}": int(((modeled_before == i) & (modeled_after == j)).sum())
+                             for i, a in enumerate(STATUS_NAMES) for j, b in enumerate(STATUS_NAMES)},
         warnings=list(dict.fromkeys(base.warnings + prop.warnings)),
     )

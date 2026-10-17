@@ -17,6 +17,8 @@ import logging
 import os
 import re
 import tempfile
+import time
+from datetime import datetime, timezone
 from typing import Literal, Optional
 
 from pydantic import BaseModel, ValidationError, field_validator, model_validator
@@ -145,14 +147,42 @@ def _client():
     )
 
 
-def call_model(kind: str, text: str) -> str:
-    resp = _client().chat.completions.create(
+def call_model(kind: str, text: str, *, client=None) -> str:
+    resp = (client or _client()).chat.completions.create(
         model=config.LLM_MODEL,
         messages=[{"role": "system", "content": SYSTEM_PROMPT},
                   {"role": "user", "content": build_prompt(kind, text)}],
-        temperature=0,
     )
     return resp.choices[0].message.content or ""
+
+
+def check_connection() -> dict:
+    """Fresh bounded parser request, never a cache hit. Never return provider error bodies or keys."""
+    started = time.monotonic()
+    status, message = "not_configured", "Complete the server's Chalk gateway configuration."
+    http_status = None
+    if config.llm_configured():
+        try:
+            client = _client().with_options(timeout=min(config.LLM_TIMEOUT_S, 15), max_retries=0)
+            parsed = parse_llm_output(call_model("inclusion", "Participants must be at least eighteen years old.", client=client))
+            correct = bool(parsed and parsed.simulatable and parsed.variable == "age" and parsed.operator == ">=" and parsed.value == 18)
+            status = "ready" if correct else "invalid_output"
+            message = "Live Chalk request succeeded and the parser validated the expected age rule." if correct else "Chalk responded, but its output did not validate as the expected age rule."
+        except Exception as exc:
+            http_status = getattr(exc, "status_code", None)
+            if http_status == 401:
+                status, message = "authentication_failed", "Chalk rejected the gateway key (401). Update the private server .env and restart."
+            elif http_status == 403:
+                status, message = "permission_denied", "Chalk denied this key access to the configured model/environment (403). Use the sponsor-issued router key or ask its issuer to enable access."
+            elif http_status == 429:
+                status, message = "rate_limited", "Chalk rate or token allowance reached (429). Retry later or check the allowance with the issuer."
+            elif type(exc).__name__ == "APITimeoutError":
+                status, message = "timeout", "The live Chalk check timed out. This does not confirm that the gateway is working."
+            else:
+                status, message = "provider_error", "The live Chalk request failed. Check server connectivity and gateway configuration."
+    return {"status": status, "message": message, "model": config.LLM_MODEL or None,
+            "http_status": http_status, "checked_at": datetime.now(timezone.utc).isoformat(),
+            "elapsed_ms": round((time.monotonic() - started) * 1000)}
 
 
 def classify(rule: Rule) -> tuple[LLMParse | None, bool]:

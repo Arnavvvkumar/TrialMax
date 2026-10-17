@@ -84,7 +84,7 @@ def evaluate(rules: list[Rule], columns: dict[str, np.ndarray], cohort: CohortIn
             pass_n=0 if rule.not_applicable else int((~failed & ~missing).sum()),
             unknown_n=0 if rule.not_applicable else int(missing.sum()),
         ))
-        if rule.not_applicable:
+        if rule.id not in modeled:
             continue
         failed_so_far |= failed
         unknown_so_far = (unknown_so_far | missing) & ~failed_so_far
@@ -110,7 +110,8 @@ def evaluate(rules: list[Rule], columns: dict[str, np.ndarray], cohort: CohortIn
         values, known = prepared[rule.variable]
         return values[index].item() if known[index] else None
 
-    patients = [PatientResult(patient_id=patient_id(index), overall_status=STATUS_NAMES[int(states[index])], criteria=[
+    patients = [PatientResult(patient_id=patient_id(index), overall_status=STATUS_NAMES[int(states[index])],
+                modeled_status=STATUS_NAMES[int(modeled_states[index])], criteria=[
         CriterionResult(rule_id=r.id, status="unknown" if r.not_applicable or unknowns[r.id][index]
                         else "fail" if failures[r.id][index] else "pass", value=value_at(r, index)) for r in rules
     ]) for index in preview]
@@ -127,6 +128,7 @@ def evaluate(rules: list[Rule], columns: dict[str, np.ndarray], cohort: CohortIn
         eligible_n=pass_n, eligible_pct=_pct(pass_n, n) if pass_n is not None else None,
         excluded_n=int((states == FAIL).sum()), unknown_n=int((states == UNKNOWN).sum()),
         modeled_eligible_n=int((modeled_states == PASS).sum()) if modeled else None,
+        modeled_eligible_pct=_pct(int((modeled_states == PASS).sum()), n) if modeled else None,
         modeled_unknown_n=int((modeled_states == UNKNOWN).sum()),
         complete=bool(modeled) and not unmodeled and not approximate and not (states == UNKNOWN).any(),
         coverage_pct=_pct(len(modeled), substantive) if substantive else None,
