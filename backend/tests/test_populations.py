@@ -63,14 +63,14 @@ def test_admin_and_permission_do_not_make_clinical_results_unknown(mode):
 
 def test_missing_variable_is_unknown_and_not_simulated():
     rule = Rule(id='A', kind='exclusion', text='HIV', variable='hiv', operator='present', simulatable=True)
-    result = simulate_population([rule], PopulationChoice())
+    result = simulate_population([rule], PopulationChoice(mode='fixed'))
     assert result.eligible_n is None and result.unknown_n == 500 and result.excluded_n == 0
     assert result.unmodeled_rule_ids == ['A'] and result.impacts[0].unknown_n == 500
 
 
 def test_numeric_safety_changes_and_reasons_for_review():
     old = Rule(id='A', kind='inclusion', text='ANC >=1.5', variable='anc', operator='>=', value=1.5, unit='10^9/L', purpose='safety', simulatable=True)
-    result = compare_population([old], [old.model_copy(update={'value': 1.0})], PopulationChoice())
+    result = compare_population([old], [old.model_copy(update={'value': 1.0})], PopulationChoice(mode='fixed'))
     assert result.safety_review_rule_ids == ['A']
     assert result.changes[0].change == 'relaxed'
     assert result.newly_excluded_n == 0
@@ -80,10 +80,10 @@ def test_numeric_safety_changes_and_reasons_for_review():
 
 
 def test_fixed_biomarker_is_distinct_from_kidney_function():
-    option = population_catalog()['options'][0]
+    option = next(o for o in population_catalog()['options'] if o['mode'] == 'fixed')
     assert 'egfr_mutation_positive' in option['available_variables'] and 'egfr' in option['available_variables']
     rule = Rule(id='G', kind='inclusion', text='EGFR mutation positive', variable='egfr_mutation_positive', operator='present', simulatable=True)
-    result = simulate_population([rule], PopulationChoice())
+    result = simulate_population([rule], PopulationChoice(mode='fixed'))
     assert result.eligible_n == 136 and result.excluded_n == 341 and result.unknown_n == 23
     generated = simulate_population([rule], PopulationChoice(mode='generated', size=500))
     assert generated.eligible_n is None and generated.unknown_n == 500

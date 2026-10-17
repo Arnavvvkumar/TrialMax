@@ -9,7 +9,7 @@ def review_scenario(baseline: list[Rule], proposed: list[Rule], population: Popu
                     source: str = "local") -> ScenarioReviewResponse:
     """Use main's cohort engine; Chalk never decides eligibility."""
     comparison = compare_population(baseline, proposed, population)
-    data_source = "local-fixed-cohort" if population.mode == "fixed" else "generated-synthetic"
+    data_source = {"synthea": "synthea-cohort", "fixed": "local-fixed-cohort"}.get(population.mode, "generated-synthetic")
     summary = "No modeled eligibility estimate is available."
     if comparison.eligible_change_n is not None:
         summary = f"The proposed scenario changes modeled eligibility by {comparison.eligible_change_n:+d} synthetic patients."

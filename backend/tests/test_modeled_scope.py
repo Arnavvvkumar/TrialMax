@@ -35,7 +35,7 @@ def age_rule(value=50):
 
 def test_first_unsupported_rule_does_not_empty_the_funnel_or_erase_patient_check_status():
     unsupported = Rule(id='U', kind='inclusion', text='An unsupported requirement')
-    result = simulate_population([unsupported, age_rule()], PopulationChoice())
+    result = simulate_population([unsupported, age_rule()], PopulationChoice(mode='fixed'))
     assert [s.rule_id for s in result.funnel] == [None, 'A']
     for patient in result.patient_results:
         if patient.criteria[1].status == 'pass':
@@ -44,14 +44,14 @@ def test_first_unsupported_rule_does_not_empty_the_funnel_or_erase_patient_check
 
 
 def test_only_unsupported_checks_produce_no_modeled_estimate():
-    result = simulate_population([Rule(id='U', kind='inclusion', text='Unknown')], PopulationChoice())
+    result = simulate_population([Rule(id='U', kind='inclusion', text='Unknown')], PopulationChoice(mode='fixed'))
     assert result.modeled_eligible_n is result.modeled_eligible_pct is None
     assert len(result.funnel) == 1 and result.modeled_unknown_n == 500
 
 
 def test_modeled_comparison_shows_change_even_when_full_protocol_stays_unresolved():
     unsupported = Rule(id='U', kind='inclusion', text='Unknown biomarker subtype')
-    result = compare_population([unsupported, age_rule(70)], [unsupported, age_rule(50)], PopulationChoice())
+    result = compare_population([unsupported, age_rule(70)], [unsupported, age_rule(50)], PopulationChoice(mode='fixed'))
     assert result.eligible_change_n == 0 and result.newly_eligible_n == 0
     assert result.modeled_eligible_change_n > 0
     assert result.modeled_eligible_change_pct_points > 0
@@ -61,8 +61,9 @@ def test_modeled_comparison_shows_change_even_when_full_protocol_stays_unresolve
 
 
 def test_registry_default_and_explicit_population_choice():
-    assert AnalyzeRequest(nct_id='NCT06165419').population == PopulationChoice(mode='generated', size=10000)
-    assert AnalyzeRequest(eligibility_text='Age >=18').population.mode == 'fixed'
+    # Synthea is the default population for registry lookups and pasted text alike.
+    assert AnalyzeRequest(nct_id='NCT06165419').population.mode == 'synthea'
+    assert AnalyzeRequest(eligibility_text='Age >=18').population.mode == 'synthea'
     assert AnalyzeRequest(nct_id='NCT06165419', population={'mode': 'fixed'}).population.mode == 'fixed'
 
 

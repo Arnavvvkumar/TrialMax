@@ -30,7 +30,8 @@ NOT_APPLICABLE = ("administrative", "permission")
 class PopulationChoice(BaseModel):
     """One population selection applies to both sides of a comparison."""
     model_config = {"extra": "forbid"}
-    mode: Literal["fixed", "generated"] = "fixed"
+    # synthea is the default; fixed and generated remain as API-only fallbacks.
+    mode: Literal["synthea", "fixed", "generated"] = "synthea"
     size: int = Field(default=500, ge=100, le=200000)
     seed: int = Field(default=42, ge=0, le=2**32 - 1)
     version: Optional[str] = Field(default=None, max_length=80)
@@ -39,7 +40,7 @@ class PopulationChoice(BaseModel):
 
 class CohortInfo(BaseModel):
     id: str
-    mode: Literal["fixed", "generated"]
+    mode: Literal["synthea", "fixed", "generated"]
     version: str
     label: str
     population_n: int
@@ -188,12 +189,6 @@ class AnalyzeRequest(BaseModel):
     use_llm: bool = True
     population_size: int = POPULATION_FIELD
     seed: int = SEED_FIELD
-
-    @model_validator(mode="after")
-    def _registry_population_default(self):
-        if self.nct_id and "population" not in self.model_fields_set:
-            self.population = PopulationChoice(mode="generated", size=10000)
-        return self
 
 
 class AnalyzeResponse(BaseModel):

@@ -11,6 +11,7 @@ WORKDIR /app
 COPY backend/requirements.txt backend/requirements.txt
 RUN pip install --no-cache-dir -r backend/requirements.txt
 COPY backend/app/ backend/app/
+COPY backend/data/ backend/data/
 COPY frontend/synthetic_data/patients.json /app/data/patients.json
 COPY --from=web /web/dist/ frontend/dist/
 ENV WT_COHORT_PATH=/app/data/patients.json

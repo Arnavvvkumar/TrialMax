@@ -1,7 +1,8 @@
 import type { AnalyzeResponse, CompareResult, PopulationMode, ReviewDecision, Rule } from './scenarioTypes.ts'
 
-export function defaultPopulationMode(source: 'nct' | 'text'): PopulationMode {
-  return source === 'nct' ? 'generated' : 'fixed'
+// Synthea is the default for every source; fixed and generated remain API-only fallbacks.
+export function defaultPopulationMode(_source: 'nct' | 'text'): PopulationMode {
+  return 'synthea'
 }
 
 export interface Workspace {

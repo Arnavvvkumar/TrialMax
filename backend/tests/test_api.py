@@ -16,7 +16,8 @@ def post(path, body, **kw):
 
 
 def test_simulate_ok():
-    r = post("/api/simulate", {"rules": [GOOD], "population_size": 1000})
+    # GOOD is an ECOG rule; Synthea has no ECOG, so use the fixed cohort, which does.
+    r = post("/api/simulate", {"rules": [GOOD], "population": {"mode": "fixed"}})
     assert r.status_code == 200 and r.json()["eligible_pct"] is not None
 
 

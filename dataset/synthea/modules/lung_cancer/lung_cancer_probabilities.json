@@ -1,0 +1,45 @@
+{
+  "name": "Lung Cancer Probabilities (CliNova enriched cohort)",
+  "remarks": [
+    "Local override of Synthea's modules/lung_cancer/lung_cancer_probabilities.json.",
+    "Synthea's published lifetime risks are multiplied by 4 (capped at 1.0) so a cancer-only cohort",
+    "can be generated in minutes instead of hours. The smoker/former/never-smoker ratios are kept.",
+    "Original values: male smoker 0.244, quit 0.055, never 0.002; female smoker 0.185, quit 0.026, never 0.004.",
+    "This enriches incidence only. Every other part of the lung cancer and general Synthea modules is unchanged.",
+    "The resulting cohort is NOT an incidence-representative population; it is a screening population of",
+    "people who already have NSCLC, which is what a trial eligibility simulation needs."
+  ],
+  "states": {
+    "Initial": {
+      "type": "Initial",
+      "conditional_transition": [
+        {"transition": "Female", "condition": {"condition_type": "Gender", "gender": "F"}},
+        {"transition": "Male", "condition": {"condition_type": "Gender", "gender": "M"}}
+      ]
+    },
+    "Terminal": {"type": "Terminal"},
+    "Male": {
+      "type": "Simple",
+      "conditional_transition": [
+        {"transition": "Male_Smoker", "condition": {"condition_type": "Attribute", "attribute": "smoker", "operator": "==", "value": true}},
+        {"transition": "Male_Quit", "condition": {"condition_type": "Attribute", "attribute": "quit smoking age", "operator": "is not nil"}},
+        {"transition": "Male_Nonsmoker"}
+      ]
+    },
+    "Female": {
+      "type": "Simple",
+      "conditional_transition": [
+        {"transition": "Female_Smoker", "condition": {"condition_type": "Attribute", "attribute": "smoker", "operator": "==", "value": true}},
+        {"transition": "Female_Quit", "condition": {"condition_type": "Attribute", "attribute": "quit smoking age", "operator": "is not nil"}},
+        {"transition": "Female_Nonsmoker"}
+      ]
+    },
+    "Male_Smoker": {"type": "SetAttribute", "attribute": "probability_of_lung_cancer", "direct_transition": "Terminal", "value": 0.976},
+    "Male_Quit": {"type": "SetAttribute", "attribute": "probability_of_lung_cancer", "direct_transition": "Terminal", "value": 0.22},
+    "Male_Nonsmoker": {"type": "SetAttribute", "attribute": "probability_of_lung_cancer", "direct_transition": "Terminal", "value": 0.008},
+    "Female_Smoker": {"type": "SetAttribute", "attribute": "probability_of_lung_cancer", "direct_transition": "Terminal", "value": 0.74},
+    "Female_Quit": {"type": "SetAttribute", "attribute": "probability_of_lung_cancer", "direct_transition": "Terminal", "value": 0.104},
+    "Female_Nonsmoker": {"type": "SetAttribute", "attribute": "probability_of_lung_cancer", "direct_transition": "Terminal", "value": 0.016}
+  },
+  "gmf_version": 1
+}

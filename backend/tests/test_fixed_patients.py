@@ -40,7 +40,7 @@ def test_simulate_endpoint_uses_fixed_cohort():
         response = client.post("/api/simulate", json={"rules": [
             {"id": "age", "kind": "inclusion", "text": "Age >= 50", "variable": "age",
              "operator": ">=", "value": 50, "simulatable": True},
-        ]})
+        ], "population": {"mode": "fixed"}})
     assert response.status_code == 200
     body = response.json()
     assert body["population_n"] == 500

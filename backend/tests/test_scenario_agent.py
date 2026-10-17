@@ -35,7 +35,7 @@ def test_chalk_source_normalizes_feature_rows_from_injected_client():
 
 
 def test_scenario_review_uses_fixed_cohort_and_returns_provenance():
-    response = review_scenario([rule("age", "age", ">=", 70)], [rule("age", "age", ">=", 60)], PopulationChoice())
+    response = review_scenario([rule("age", "age", ">=", 70)], [rule("age", "age", ">=", 60)], PopulationChoice(mode="fixed"))
     assert response.data_source == "local-fixed-cohort"
     assert response.comparison.eligible_change_n > 0
     assert "synthetic patients" in response.summary
@@ -47,10 +47,10 @@ def test_scenario_review_endpoint_defaults_to_local_source():
     with TestClient(app) as client:
         response = client.post("/api/scenario-review", json=body)
     assert response.status_code == 200
-    assert response.json()["data_source"] == "local-fixed-cohort"
+    assert response.json()["data_source"] == "synthea-cohort"   # Synthea is the default population
 
 
 def test_requested_chalk_source_falls_back_without_chalk_configuration():
     response = review_scenario([rule("age", "age", ">=", 70)], [rule("age", "age", ">=", 60)], PopulationChoice(), "chalk")
-    assert response.data_source == "local-fixed-cohort-chalk-fallback"
+    assert response.data_source == "synthea-cohort-chalk-fallback"
     assert "Chalk patient features are unavailable" in response.summary

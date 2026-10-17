@@ -1,0 +1,31 @@
+{
+  "name": "Keep living patients with active non-small cell lung cancer",
+  "remarks": [
+    "Synthea keep module used by dataset/synthea/generate.sh.",
+    "A generated patient is exported only if they reach the Keep state."
+  ],
+  "gmf_version": 2,
+  "states": {
+    "Initial": {
+      "type": "Initial",
+      "conditional_transition": [
+        {
+          "transition": "Keep",
+          "condition": {
+            "condition_type": "Or",
+            "conditions": [
+              {"condition_type": "Active Condition", "codes": [{"system": "SNOMED-CT", "code": "254637007", "display": "Non-small cell lung cancer (disorder)"}]},
+              {"condition_type": "Active Condition", "codes": [{"system": "SNOMED-CT", "code": "424132000", "display": "Non-small cell carcinoma of lung, TNM stage 1 (disorder)"}]},
+              {"condition_type": "Active Condition", "codes": [{"system": "SNOMED-CT", "code": "425048006", "display": "Non-small cell carcinoma of lung, TNM stage 2 (disorder)"}]},
+              {"condition_type": "Active Condition", "codes": [{"system": "SNOMED-CT", "code": "422968005", "display": "Non-small cell carcinoma of lung, TNM stage 3 (disorder)"}]},
+              {"condition_type": "Active Condition", "codes": [{"system": "SNOMED-CT", "code": "423121009", "display": "Non-small cell carcinoma of lung, TNM stage 4 (disorder)"}]}
+            ]
+          }
+        },
+        {"transition": "Terminal"}
+      ]
+    },
+    "Keep": {"type": "Terminal"},
+    "Terminal": {"type": "Terminal"}
+  }
+}

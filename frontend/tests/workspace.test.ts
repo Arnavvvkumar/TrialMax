@@ -11,8 +11,8 @@ const analysis = { rules: [rule], simulation } as AnalyzeResponse
 const decision = { decision: 'accepted' as const, reason: 'Reviewed for test', at: '2026-10-17T00:00:00Z' }
 
 test('registry lookups default to generated exploration; pasted examples use the fixed cohort', () => {
-  assert.equal(defaultPopulationMode('nct'), 'generated')
-  assert.equal(defaultPopulationMode('text'), 'fixed')
+  assert.equal(defaultPopulationMode('nct'), 'synthea')
+  assert.equal(defaultPopulationMode('text'), 'synthea')
 })
 function loaded() { return workspaceReducer(emptyWorkspace('trial-A'), { type: 'analyzed', context: 'trial-A', result: analysis }) }
 function compared() {
