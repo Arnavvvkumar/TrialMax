@@ -27,4 +27,4 @@ def test_response_keeps_orphanet_and_nord_link_only():
     response = build_rare_reach("NCT01234567", [rule], trial=trial(), client=Client())
     assert response.orpha_status == "no_match"
     assert response.sources[1]["access"] == "live"
-    assert response.strategies[0].option_b.startswith("Keep the criterion")
+    assert response.strategies[0].outreach.startswith("Keep this criterion")

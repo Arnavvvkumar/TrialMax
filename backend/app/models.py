@@ -258,8 +258,7 @@ class RecruitmentStrategy(BaseModel):
     rule_id: str
     criterion: str
     safety_sensitive: bool
-    option_a: str
-    option_b: str
+    outreach: str
 
 
 class RareReachResponse(BaseModel):
