@@ -6,22 +6,23 @@ import logging
 import threading
 import time
 from collections import deque
+from pathlib import Path
 
 import httpx
 from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, FileResponse
+from fastapi.staticfiles import StaticFiles
 
 from . import config
 from .ctgov import TrialNotFound, fetch_trial
-from .fixed_patients import simulate_fixed
+from .cohorts import population_catalog, simulate_population, compare_population
 from .models import (
     AnalyzeRequest, AnalyzeResponse, CompareRequest, CompareResult, SimulateRequest,
     SimulationResult, TrialInfo,
 )
 from .pipeline import parse_eligibility
 from .registry import registry_rules
-from .simulate import compare, coverage_warnings, simulate
 from .variables import VARIABLES
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(name)s %(levelname)s %(message)s")
@@ -145,6 +146,11 @@ def variables():
     return VARIABLES
 
 
+@app.get("/api/populations")
+def populations():
+    return population_catalog()
+
+
 @app.get("/api/trials/{nct_id}", response_model=TrialInfo)
 def get_trial(nct_id: str):
     return _get_trial(nct_id)
@@ -162,16 +168,30 @@ def analyze(req: AnalyzeRequest):
         raise HTTPException(status_code=422, detail="This trial has no eligibility text on ClinicalTrials.gov.")
     rules, warnings, llm_used = parse_eligibility(trial.eligibility_text, use_llm=req.use_llm)
     rules = registry_rules(trial) + rules
-    sim = simulate(rules, req.population_size, req.seed)
+    sim = simulate_population(rules, req.population)
     return AnalyzeResponse(trial=trial, rules=rules, simulation=sim, llm_used=llm_used,
-                           warnings=warnings + coverage_warnings(sim))
+                           warnings=warnings + sim.warnings)
 
 
 @app.post("/api/simulate", response_model=SimulationResult, dependencies=[Depends(heavy_request)])
 def simulate_rules(req: SimulateRequest):
-    return simulate_fixed(req.rules)
+    return simulate_population(req.rules, req.population)
 
 
 @app.post("/api/compare", response_model=CompareResult, dependencies=[Depends(heavy_request)])
 def compare_rules(req: CompareRequest):
-    return compare(req.baseline_rules, req.proposed_rules, req.population_size, req.seed)
+    return compare_population(req.baseline_rules, req.proposed_rules, req.population)
+
+
+# A built frontend can be served on the same origin as the API in production.
+FRONTEND_DIST = Path(__file__).resolve().parents[2] / "frontend" / "dist"
+if (FRONTEND_DIST / "assets").is_dir():
+    app.mount("/assets", StaticFiles(directory=FRONTEND_DIST / "assets"), name="assets")
+
+
+@app.get("/", include_in_schema=False)
+def frontend():
+    index = FRONTEND_DIST / "index.html"
+    if index.is_file():
+        return FileResponse(index)
+    return {"status": "backend ready", "frontend": "Run npm ci and npm run build in frontend/ or use the Vite development server.", "docs": "/docs"}

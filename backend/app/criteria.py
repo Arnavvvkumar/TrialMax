@@ -631,6 +631,10 @@ def parse_clause(clause: str, kind: str) -> ClauseResult:
 
     items: list[Parsed] = []
     failures: list[str] = []
+    biomarker = re.fullmatch(r"(?:documented |confirmed |known )?(egfr mutation|alk rearrangement) (positive|negative)(?: status)?", s)
+    if biomarker:
+        items.append(Parsed("condition", "egfr_mutation_positive" if biomarker.group(1) == "egfr mutation" else "alk_positive",
+                            "present" if biomarker.group(2) == "positive" else "absent", start=0, end=len(s)))
     if BREASTFEEDING_RE.search(s):
         failures.append("Breastfeeding status is not modeled by the pregnancy variable.")
     for parsed in (parse_age(s), parse_ecog(s)):

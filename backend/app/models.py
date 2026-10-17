@@ -22,9 +22,29 @@ Findability = Literal[
 ]
 
 MAX_RULES = 200
-SEED_FIELD = Field(default=42, ge=0, le=2**32 - 1)
-POPULATION_FIELD = Field(default=10000, ge=100, le=200000)
+SEED_FIELD = Field(default=42, ge=0, le=2**32 - 1, description="Deprecated and ignored; use population.seed.")
+POPULATION_FIELD = Field(default=10000, ge=100, le=200000, description="Deprecated and ignored; use population.size.")
 NOT_APPLICABLE = ("administrative", "permission")
+
+
+class PopulationChoice(BaseModel):
+    """One population selection applies to both sides of a comparison."""
+    model_config = {"extra": "forbid"}
+    mode: Literal["fixed", "generated"] = "fixed"
+    size: int = Field(default=500, ge=100, le=200000)
+    seed: int = Field(default=42, ge=0, le=2**32 - 1)
+    version: Optional[str] = Field(default=None, max_length=80)
+    cohort_id: Optional[str] = Field(default=None, max_length=160)
+
+
+class CohortInfo(BaseModel):
+    id: str
+    mode: Literal["fixed", "generated"]
+    version: str
+    label: str
+    population_n: int
+    seed: Optional[int]
+    available_variables: list[str]
 
 
 class Rule(BaseModel):
@@ -90,6 +110,8 @@ class RuleImpact(BaseModel):
     fail_pct: float = 0.0
     unique_fail_n: int = 0
     unique_fail_pct: float = 0.0
+    pass_n: int = 0
+    unknown_n: int = 0
 
 
 class FunnelStep(BaseModel):
@@ -103,6 +125,7 @@ class FunnelStep(BaseModel):
 class CriterionResult(BaseModel):
     rule_id: str
     status: Literal["pass", "fail", "unknown"]
+    value: float | bool | None = None
 
 
 class PatientResult(BaseModel):
@@ -124,11 +147,16 @@ class ExcludedPatient(BaseModel):
 
 
 class SimulationResult(BaseModel):
+    cohort: CohortInfo
     population_n: int
     seed: int
     estimate_label: str = "Share of synthetic patients passing the modeled checks"
     eligible_n: Optional[int]
     eligible_pct: Optional[float]
+    excluded_n: int
+    unknown_n: int
+    modeled_eligible_n: Optional[int]
+    modeled_unknown_n: int
     complete: bool
     coverage_pct: Optional[float]
     modeled_rule_ids: list[str]
@@ -143,9 +171,13 @@ class SimulationResult(BaseModel):
     assumptions: list[str]
     patient_results: list[PatientResult] = Field(default_factory=list)
     rule_overlaps: list[RuleOverlap] = Field(default_factory=list)
+    patient_results_complete: bool = False
+    overlaps_truncated: bool = False
+    warnings: list[str] = Field(default_factory=list)
 
 
 class AnalyzeRequest(BaseModel):
+    population: PopulationChoice = Field(default_factory=PopulationChoice)
     nct_id: Optional[str] = Field(default=None, max_length=20)
     eligibility_text: Optional[str] = Field(default=None, max_length=30000)
     use_llm: bool = True
@@ -162,11 +194,11 @@ class AnalyzeResponse(BaseModel):
 
 
 class SimulateRequest(BaseModel):
+    population: PopulationChoice = Field(default_factory=PopulationChoice)
     rules: list[Rule] = Field(max_length=MAX_RULES)
-    # Kept temporarily for callers of the earlier random-population endpoint.
-    # /api/simulate evaluates the checked-in fixed cohort and ignores both fields.
-    population_size: int = Field(default=10000, ge=100, le=200000, description="Deprecated; ignored by /api/simulate.")
-    seed: int = Field(default=42, ge=0, le=2**32 - 1, description="Deprecated; ignored by /api/simulate.")
+    # Legacy top-level settings are accepted for compatibility; population is authoritative.
+    population_size: int = POPULATION_FIELD
+    seed: int = SEED_FIELD
 
     @model_validator(mode="after")
     def _unique(self):
@@ -175,6 +207,7 @@ class SimulateRequest(BaseModel):
 
 
 class CompareRequest(BaseModel):
+    population: PopulationChoice = Field(default_factory=PopulationChoice)
     baseline_rules: list[Rule] = Field(max_length=MAX_RULES)
     proposed_rules: list[Rule] = Field(max_length=MAX_RULES)
     population_size: int = POPULATION_FIELD
@@ -194,6 +227,7 @@ class RuleChange(BaseModel):
 
 
 class CompareResult(BaseModel):
+    cohort: CohortInfo
     baseline: SimulationResult
     proposed: SimulationResult
     eligible_change_n: Optional[int]
@@ -204,3 +238,7 @@ class CompareResult(BaseModel):
     changed_rule_ids: list[str]
     relaxed_safety_critical_rule_ids: list[str]
     review_safety_critical_rule_ids: list[str]
+    safety_review_rule_ids: list[str] = Field(default_factory=list)
+    modeled_eligible_change_n: Optional[int] = None
+    transitions: dict[str, int] = Field(default_factory=dict)
+    warnings: list[str] = Field(default_factory=list)
