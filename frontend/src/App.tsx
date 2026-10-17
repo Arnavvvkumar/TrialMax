@@ -164,6 +164,8 @@ export default function App() {
     return () => window.removeEventListener('popstate', onPopState)
   }, [])
   useEffect(() => () => controller.current?.abort(), [])
+  // Verify the Chalk gateway once on load so the AI fallback can start enabled.
+  useEffect(() => { if (health?.llm_configured && !chalkCheck && !checkingChalk) void testChalk() }, [health])
   const analysis = workspace.analysis, baseline = analysis?.rules ?? [], changes = changedRules(baseline, workspace.draft)
   const selected = workspace.draft.find(r => r.id === selectedId) ?? workspace.draft[0]
   const populationValid = mode !== 'generated' || (Number.isInteger(size) && size >= 100 && size <= 200000 && Number.isInteger(seed) && seed >= 0 && seed <= 4294967295)
@@ -173,7 +175,7 @@ export default function App() {
     try {
       const result = await checkChalk()
       setChalkCheck(result)
-      if (result.status !== 'ready') setUseLlm(false)
+      setUseLlm(result.status === 'ready')   // AI fallback is on by default only after a live check passes
     } catch (cause) { setError(String(cause)) }
     finally { setCheckingChalk(false) }
   }
