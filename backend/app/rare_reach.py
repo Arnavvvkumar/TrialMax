@@ -14,6 +14,7 @@ ORPHANET_URL = "https://www.orpha.net/en/disease"
 ORPHANET_CENTRES_URL = "https://www.orpha.net/en/expert-centres"
 ORPHANET_NETWORKS_URL = "https://www.orpha.net/en/expert-centres/networks"
 NORD_URL = "https://rarediseases.org/rare-diseases/"
+US_COUNTRY_NAMES = {"united states", "united states of america", "usa", "us"}
 
 class RareReachError(RuntimeError): pass
 
@@ -47,6 +48,9 @@ def _nord_candidate_url(term: str | None) -> str | None:
     slug = re.sub(r"[^a-z0-9]+", "-", term.lower()).strip("-")
     return f"{NORD_URL}{slug}/" if slug else None
 
+def _is_us_location(location: dict) -> bool:
+    return str(location.get("country") or "").strip().casefold() in US_COUNTRY_NAMES
+
 def find_hospitals(trial: TrialInfo, client: httpx.Client | None = None) -> list[RecruitmentSite]:
     conditions = [c for c in trial.conditions if c]
     if not conditions: return []
@@ -61,6 +65,8 @@ def find_hospitals(trial: TrialInfo, client: httpx.Client | None = None) -> list
     for study in studies if isinstance(studies, list) else []:
         protocol = study.get("protocolSection", {}); nct = protocol.get("identificationModule", {}).get("nctId")
         for loc in protocol.get("contactsLocationsModule", {}).get("locations", []) or []:
+            if not _is_us_location(loc):
+                continue
             key = tuple(str(loc.get(k) or "").strip() for k in ("facility", "city", "state", "country"))
             if nct and key[0]: sites[key].add(str(nct))
     out = []
