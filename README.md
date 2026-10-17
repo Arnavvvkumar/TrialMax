@@ -1,4 +1,4 @@
-# Wind Tunnel
+# CliNova
 
 See the trade-offs of every eligibility rule before you lock the protocol.
 
