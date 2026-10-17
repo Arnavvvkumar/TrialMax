@@ -34,6 +34,8 @@ export interface CriterionExclusion {
 export interface SimulationResponse {
   source: 'synthetic-mock' | 'backend'
   evaluatedAt: string
+  dataSource?: string
+  sourceRunId?: string
   baseline: PatientPopulationSummary
   modified: PatientPopulationSummary
   eligibilityPercentagePointChange: number

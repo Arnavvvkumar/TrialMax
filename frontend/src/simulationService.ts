@@ -4,6 +4,7 @@ import type { EligibilityCriterion, SimulationResponse } from './scenarioTypes'
 const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8000').replace(/\/$/, '')
 const USE_BACKEND = import.meta.env.VITE_USE_BACKEND === 'true'
 const API_TOKEN = import.meta.env.VITE_API_TOKEN
+const SCENARIO_SOURCE = import.meta.env.VITE_SCENARIO_SOURCE === 'chalk' ? 'chalk' : 'local'
 
 interface ApiRule {
   id: string
@@ -26,12 +27,20 @@ interface ApiSimulationResult {
   eligible_n: number | null
   eligible_pct: number | null
   impacts: Array<{ rule_id: string; simulated: boolean; fail_n: number; fail_pct: number }>
+  patient_results?: Array<{ overall_status: 'pass' | 'fail' | 'unknown' }>
 }
 
 interface ApiCompareResult {
   baseline: ApiSimulationResult
   proposed: ApiSimulationResult
   eligible_change_pct_points: number | null
+}
+
+interface ApiScenarioReview {
+  comparison: ApiCompareResult
+  data_source: string
+  source_run_id?: string | null
+  summary: string
 }
 
 export interface TrialInfo {
@@ -75,14 +84,18 @@ function toApiRule(criterion: EligibilityCriterion): ApiRule {
 
 function toSummary(result: ApiSimulationResult) {
   const eligible = result.eligible_n ?? 0
-  return { total: result.population_n, eligible, excluded: result.population_n - eligible, unknown: 0 }
+  const unknown = result.patient_results?.filter((patient) => patient.overall_status === 'unknown').length ?? 0
+  return { total: result.population_n, eligible, excluded: result.population_n - eligible - unknown, unknown }
 }
 
-function toResponse(compare: ApiCompareResult, criteria: EligibilityCriterion[]): SimulationResponse {
+function toResponse(compare: ApiCompareResult, criteria: EligibilityCriterion[], dataSource = 'backend', note?: string,
+                    sourceRunId?: string | null): SimulationResponse {
   const names = new Map(criteria.map((criterion) => [criterion.id, criterion.name]))
   return {
     source: 'backend',
     evaluatedAt: new Date().toISOString(),
+    dataSource,
+    sourceRunId: sourceRunId ?? undefined,
     baseline: toSummary(compare.baseline),
     modified: toSummary(compare.proposed),
     eligibilityPercentagePointChange: compare.eligible_change_pct_points ?? 0,
@@ -94,7 +107,7 @@ function toResponse(compare: ApiCompareResult, criteria: EligibilityCriterion[])
         before: compare.baseline.impacts.find((item) => item.rule_id === impact.rule_id)?.fail_n ?? 0,
         after: impact.fail_n,
       })),
-    note: 'Calculated by the backend simulator using synthetic population generation. This is not clinical evidence.',
+    note: note ?? 'Calculated by the backend simulator using synthetic population generation. This is not clinical evidence.',
   }
 }
 
@@ -169,11 +182,10 @@ export async function compareCriteria(
   modified: EligibilityCriterion[],
 ): Promise<SimulationResponse> {
   if (!USE_BACKEND) return buildMockSimulation(modified)
-  const result = await postJson<ApiCompareResult>('/api/compare', {
+  const result = await postJson<ApiScenarioReview>('/api/scenario-review', {
     baseline_rules: baseline.map(toApiRule),
     proposed_rules: modified.map(toApiRule),
-    population_size: 500,
-    seed: 42,
+    source: SCENARIO_SOURCE,
   })
-  return toResponse(result, modified)
+  return toResponse(result.comparison, modified, result.data_source, result.summary, result.source_run_id)
 }

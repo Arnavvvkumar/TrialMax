@@ -81,6 +81,7 @@ class TrialInfo(BaseModel):
     maximum_age: Optional[str] = None
     sex: Optional[str] = None
     eligibility_text: str = ""
+    data_source: Literal["ctgov", "chalk", "manual"] = "ctgov"
 
 
 class RuleImpact(BaseModel):
@@ -143,11 +144,15 @@ class SimulationResult(BaseModel):
     assumptions: list[str]
     patient_results: list[PatientResult] = Field(default_factory=list)
     rule_overlaps: list[RuleOverlap] = Field(default_factory=list)
+    data_source: str = "local-json"
+    cohort_version: Optional[str] = None
+    source_run_id: Optional[str] = None
 
 
 class AnalyzeRequest(BaseModel):
     nct_id: Optional[str] = Field(default=None, max_length=20)
     eligibility_text: Optional[str] = Field(default=None, max_length=30000)
+    source: Literal["auto", "ctgov", "chalk"] = "auto"
     use_llm: bool = True
     population_size: int = POPULATION_FIELD
     seed: int = SEED_FIELD
@@ -185,6 +190,21 @@ class CompareRequest(BaseModel):
         ensure_unique_ids(self.baseline_rules)
         ensure_unique_ids(self.proposed_rules)
         return self
+
+
+class ScenarioReviewRequest(CompareRequest):
+    """A fixed-cohort comparison, optionally backed by Chalk feature queries."""
+
+    source: Literal["local", "chalk"] = "local"
+    question: Optional[str] = Field(default=None, max_length=1000)
+
+
+class ScenarioReviewResponse(BaseModel):
+    comparison: "CompareResult"
+    data_source: str
+    cohort_version: Optional[str] = None
+    source_run_id: Optional[str] = None
+    summary: str
 
 
 class RuleChange(BaseModel):

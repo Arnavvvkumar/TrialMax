@@ -32,15 +32,8 @@ _FIELD_MAP = {
 }
 
 
-@lru_cache(maxsize=1)
-def load_patients() -> tuple[dict[str, Any], ...]:
-    """Load and normalize the frontend's fixed synthetic cohort."""
-    try:
-        raw = json.loads(DATA_PATH.read_text(encoding="utf-8"))
-    except FileNotFoundError as exc:
-        raise ValueError(f"Fixed patient data is missing: {DATA_PATH}") from exc
-    except json.JSONDecodeError as exc:
-        raise ValueError(f"Fixed patient data is not valid JSON: {exc.msg}") from exc
+def normalize_patients(raw: Any) -> tuple[dict[str, Any], ...]:
+    """Normalize local JSON or Chalk feature rows to the simulator's variable names."""
     patients = raw.get("patients") if isinstance(raw, dict) else raw
     if not isinstance(patients, list) or not patients:
         raise ValueError("Fixed patient data must contain a non-empty 'patients' list.")
@@ -61,6 +54,18 @@ def load_patients() -> tuple[dict[str, Any], ...]:
         normalized["female"] = True if sex == "female" else False if sex == "male" else None
         cleaned.append(normalized)
     return tuple(cleaned)
+
+
+@lru_cache(maxsize=1)
+def load_patients() -> tuple[dict[str, Any], ...]:
+    """Load and normalize the frontend's fixed synthetic cohort."""
+    try:
+        raw = json.loads(DATA_PATH.read_text(encoding="utf-8"))
+    except FileNotFoundError as exc:
+        raise ValueError(f"Fixed patient data is missing: {DATA_PATH}") from exc
+    except json.JSONDecodeError as exc:
+        raise ValueError(f"Fixed patient data is not valid JSON: {exc.msg}") from exc
+    return normalize_patients(raw)
 
 
 def evaluate_criterion(rule: Rule, patient: dict[str, Any]) -> Status:
@@ -104,10 +109,10 @@ def evaluate_criterion(rule: Rule, patient: dict[str, Any]) -> Status:
     return "pass" if passes else "fail"
 
 
-def simulate_fixed(rules: list[Rule]) -> SimulationResult:
-    """Evaluate every rule against each fixed patient and report funnel/overlap details."""
+def simulate_patients(rules: list[Rule], patients: tuple[dict[str, Any], ...], *, data_source: str,
+                      cohort_version: str | None = "synthetic-v1", source_run_id: str | None = None) -> SimulationResult:
+    """Evaluate rules against normalized patient records from any feature provider."""
     ensure_unique_ids(rules)
-    patients = load_patients()
     outcomes: list[PatientResult] = []
     failures_by_rule: dict[str, set[str]] = {rule.id: set() for rule in rules}
     known_by_rule: dict[str, int] = {rule.id: 0 for rule in rules}
@@ -180,6 +185,12 @@ def simulate_fixed(rules: list[Rule]) -> SimulationResult:
         not_applicable_rule_ids=not_applicable,
         not_simulated_rule_ids=[rule.id for rule in rules if not rule.simulatable],
         impacts=impacts, funnel=funnel, worst_rule_id=worst, sample_excluded=sample,
-        assumptions=["Fixed local synthetic cohort loaded from frontend/synthetic_data/patients.json; not real patients."],
+        assumptions=["Synthetic cohort only; not real patients."],
         patient_results=outcomes, rule_overlaps=overlaps,
+        data_source=data_source, cohort_version=cohort_version, source_run_id=source_run_id,
     )
+
+
+def simulate_fixed(rules: list[Rule]) -> SimulationResult:
+    """Evaluate every rule against the checked-in fixed synthetic cohort."""
+    return simulate_patients(rules, load_patients(), data_source="local-json")

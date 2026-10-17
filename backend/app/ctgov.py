@@ -41,6 +41,7 @@ def parse_study(data: dict) -> TrialInfo:
         maximum_age=elig.get("maximumAge"),
         sex=elig.get("sex"),
         eligibility_text=elig.get("eligibilityCriteria", "") or "",
+        data_source="ctgov",
     )
 
 

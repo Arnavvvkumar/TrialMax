@@ -7,7 +7,7 @@ from .models import (
     CompareResult, ExcludedPatient, FunnelStep, Rule, RuleChange, RuleImpact, SimulationResult,
     ensure_unique_ids,
 )
-from .population import ASSUMPTIONS, generate_population
+from .population import ASSUMPTIONS, POPULATION_VERSION, generate_population
 from .variables import ULN, VARIABLES
 
 SAMPLE_EXCLUDED = 25
@@ -130,6 +130,7 @@ def simulate(rules: list[Rule], population_size: int = 10000, seed: int = 42) ->
         not_simulated_rule_ids=[r.id for r in rules if r.id not in masks],
         impacts=impacts, funnel=funnel, worst_rule_id=worst,
         sample_excluded=sample, assumptions=ASSUMPTIONS,
+        data_source="generated-synthetic", cohort_version=POPULATION_VERSION,
     )
 
 

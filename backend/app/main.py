@@ -13,15 +13,17 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 from . import config
+from .chalk_trials import ChalkTrialError, ChalkTrialNotFound, fetch_chalk_trial
 from .ctgov import TrialNotFound, fetch_trial
 from .fixed_patients import simulate_fixed
 from .models import (
     AnalyzeRequest, AnalyzeResponse, CompareRequest, CompareResult, SimulateRequest,
-    SimulationResult, TrialInfo,
+    ScenarioReviewRequest, ScenarioReviewResponse, SimulationResult, TrialInfo,
 )
 from .pipeline import parse_eligibility
 from .registry import registry_rules
 from .simulate import compare, coverage_warnings, simulate
+from .scenario_agent import review_scenario
 from .variables import VARIABLES
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(name)s %(levelname)s %(message)s")
@@ -123,7 +125,19 @@ async def value_error(_: Request, exc: ValueError):
 
 # ---------------------------------------------------------------- endpoints
 
-def _get_trial(nct_id: str) -> TrialInfo:
+def _get_trial(nct_id: str, source: str = "auto") -> TrialInfo:
+    if source in ("auto", "chalk"):
+        try:
+            return fetch_chalk_trial(nct_id)
+        except ChalkTrialNotFound as exc:
+            if source == "chalk":
+                raise HTTPException(status_code=404, detail=str(exc))
+            log.info("Chalk has no trial %s; falling back to ClinicalTrials.gov.", nct_id)
+        except ChalkTrialError as exc:
+            if source == "chalk":
+                log.warning("Chalk trial request failed: %s", exc)
+                raise HTTPException(status_code=502, detail="Chalk trial request failed; try again.")
+            log.info("Chalk trial source unavailable; falling back to ClinicalTrials.gov: %s", exc)
     try:
         return fetch_trial(nct_id)
     except ValueError as exc:
@@ -146,16 +160,24 @@ def variables():
 
 
 @app.get("/api/trials/{nct_id}", response_model=TrialInfo)
-def get_trial(nct_id: str):
-    return _get_trial(nct_id)
+def get_trial(nct_id: str, source: str = "auto"):
+    if source not in {"auto", "chalk", "ctgov"}:
+        raise HTTPException(status_code=422, detail="source must be auto, chalk, or ctgov.")
+    selected_source = config.CHALK_TRIAL_SOURCE if source == "auto" else source
+    if selected_source not in {"auto", "chalk", "ctgov"}:
+        raise HTTPException(status_code=500, detail="Invalid CHALK_TRIAL_SOURCE configuration.")
+    return _get_trial(nct_id, selected_source)
 
 
 @app.post("/api/analyze", response_model=AnalyzeResponse, dependencies=[Depends(heavy_request)])
 def analyze(req: AnalyzeRequest):
     if req.nct_id:
-        trial = _get_trial(req.nct_id)
+        selected_source = config.CHALK_TRIAL_SOURCE if req.source == "auto" else req.source
+        if selected_source not in {"auto", "chalk", "ctgov"}:
+            raise HTTPException(status_code=500, detail="Invalid CHALK_TRIAL_SOURCE configuration.")
+        trial = _get_trial(req.nct_id, selected_source)
     elif req.eligibility_text:
-        trial = TrialInfo(eligibility_text=req.eligibility_text)
+        trial = TrialInfo(eligibility_text=req.eligibility_text, data_source="manual")
     else:
         raise HTTPException(status_code=400, detail="Send either nct_id or eligibility_text.")
     if not trial.eligibility_text.strip():
@@ -175,3 +197,9 @@ def simulate_rules(req: SimulateRequest):
 @app.post("/api/compare", response_model=CompareResult, dependencies=[Depends(heavy_request)])
 def compare_rules(req: CompareRequest):
     return compare(req.baseline_rules, req.proposed_rules, req.population_size, req.seed)
+
+
+@app.post("/api/scenario-review", response_model=ScenarioReviewResponse, dependencies=[Depends(heavy_request)])
+def scenario_review(req: ScenarioReviewRequest):
+    """Run a fixed-cohort scenario review through the selected feature source."""
+    return review_scenario(req.baseline_rules, req.proposed_rules, req.source)

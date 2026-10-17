@@ -22,10 +22,10 @@ npm run build
 - Responsive white/sage-green dashboard with four views.
 - Trial setup field, demo study and navigation.
 - Eligibility summary with clearly labeled illustrative placeholder counts.
-- Scenario Analysis with supported numerical threshold editing, synthetic baseline-versus-modified comparisons, and visible researcher-review considerations.
+- Scenario Analysis with supported numerical threshold editing, synthetic baseline-versus-modified comparisons, and visible researcher-review considerations. Set `VITE_USE_BACKEND=true` to call the backend scenario-review API.
 - Protocol review checkboxes, draft accept/reject state (local only).
 
-**No backend, Chalk API, trial retrieval, authentic clinical evidence, or real patient data is connected yet.** The fictional NCT-DEMO-001 entry is deliberately not a real study. Do not cite demonstration figures as analysis results.
+The fictional NCT-DEMO-001 entry is deliberately not a real study. Do not cite demonstration figures as analysis results. Backend mode still uses synthetic data only; Chalk mode falls back to the local cohort if a Chalk feature query is unavailable.
 
 ## Integrating with an existing repository
 
@@ -34,8 +34,8 @@ If the team's `frontend/` folder already has an app, inspect its files first. Me
 ## Next implementation steps
 
 1. Replace the demo trial with GET /api/trials/:nctId data.
-2. Replace illustrative counts and chart values with POST /api/simulate responses.
-3. Replace the mock scenario service with POST /api/simulate and POST /api/compare.
+2. Render the backend funnel, overlap, and safety-review response details in the dashboard.
+3. Deploy the Chalk `patient.*` feature set and use `VITE_SCENARIO_SOURCE=chalk`.
 
 ### Backend API integration
 

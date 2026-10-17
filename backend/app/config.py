@@ -25,6 +25,10 @@ CHALK_ROUTER_API_KEY = os.getenv("CHALK_ROUTER_API_KEY", "")
 CHALK_ENV_ID = os.getenv("CHALK_ENV_ID", "")
 CHALK_BASE_URL = os.getenv("CHALK_BASE_URL", "https://api.chalk.ai/v1/router")
 LLM_MODEL = os.getenv("LLM_MODEL", "")
+CHALK_FEATURE_BRANCH = os.getenv("CHALK_FEATURE_BRANCH", "")
+CHALK_TRIAL_SOURCE = os.getenv("CHALK_TRIAL_SOURCE", "auto").strip().lower()
+CHALK_SQL_ENV_ID = os.getenv("CHALK_SQL_ENV_ID", CHALK_ENV_ID)
+CHALK_SQL_TIMEOUT_S = _float("CHALK_SQL_TIMEOUT_S", 20)
 
 # LLM time and work budget for one analysis
 LLM_TIMEOUT_S = _float("LLM_TIMEOUT_S", 30)          # one call
