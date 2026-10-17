@@ -60,3 +60,18 @@ def test_missing_configuration_does_not_send_a_request(monkeypatch):
     monkeypatch.setattr(config, 'LLM_MODEL', '')
     monkeypatch.setattr(llm, '_client', lambda: pytest.fail('Should not call the gateway'))
     assert llm.check_connection()['status'] == 'not_configured'
+
+
+def test_parser_sends_an_explicit_output_budget_to_the_router(monkeypatch):
+    from types import SimpleNamespace
+
+    sent = {}
+
+    def create(**kwargs):
+        sent.update(kwargs)
+        return SimpleNamespace(choices=[SimpleNamespace(message=SimpleNamespace(content='{}'))])
+
+    client = SimpleNamespace(chat=SimpleNamespace(completions=SimpleNamespace(create=create)))
+    monkeypatch.setattr(config, 'LLM_MAX_OUTPUT_TOKENS', 1024)
+    assert llm.call_model('inclusion', 'Age >=18', client=client) == '{}'
+    assert sent['max_completion_tokens'] == 1024

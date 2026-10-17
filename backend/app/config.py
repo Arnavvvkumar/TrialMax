@@ -32,6 +32,9 @@ LLM_MAX_RETRIES = _int("LLM_MAX_RETRIES", 1)
 LLM_TOTAL_BUDGET_S = _float("LLM_TOTAL_BUDGET_S", 60)  # whole fallback step
 LLM_MAX_CRITERIA = _int("LLM_MAX_CRITERIA", 40)
 LLM_MAX_WORKERS = _int("LLM_MAX_WORKERS", 6)
+LLM_MAX_OUTPUT_TOKENS = _int("LLM_MAX_OUTPUT_TOKENS", 1024)
+if not 1 <= LLM_MAX_OUTPUT_TOKENS <= 4096:
+    raise ValueError("LLM_MAX_OUTPUT_TOKENS must be between 1 and 4096.")
 CACHE_DIR = Path(os.getenv("WT_CACHE_DIR", str(BACKEND_DIR / ".cache")))
 
 # API protection

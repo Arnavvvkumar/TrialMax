@@ -152,6 +152,8 @@ def call_model(kind: str, text: str, *, client=None) -> str:
         model=config.LLM_MODEL,
         messages=[{"role": "system", "content": SYSTEM_PROMPT},
                   {"role": "user", "content": build_prompt(kind, text)}],
+        # Chalk's quota admission requires an explicit conservative output budget.
+        max_completion_tokens=config.LLM_MAX_OUTPUT_TOKENS,
     )
     return resp.choices[0].message.content or ""
 
