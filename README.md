@@ -2,7 +2,7 @@
 
 See the trade-offs of every eligibility rule before you lock the protocol.
 
-Wind Tunnel connects a React frontend to a FastAPI parser and deterministic eligibility engine. Researchers can load a ClinicalTrials.gov ID or paste public eligibility text, inspect per-rule outcomes and exclusions, edit numeric thresholds, compare the draft on the same synthetic patients, and record accept/reject decisions. The original criteria stay intact.
+CliNova connects a React frontend to a FastAPI parser and deterministic eligibility engine. Researchers can load a ClinicalTrials.gov ID or paste public eligibility text, inspect per-rule outcomes and exclusions, edit numeric thresholds, compare the draft on the same synthetic patients, and record accept/reject decisions. The original criteria stay intact.
 
 ## Run locally
 
