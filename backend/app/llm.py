@@ -1,28 +1,33 @@
-"""LLM fallback for criteria the deterministic parser could not read.
+"""LLM fallback for criteria the deterministic parser could not read at all.
 
 Calls go through the Chalk Model Gateway (OpenAI-compatible). Security:
 - Criterion text is untrusted: the prompt tells the model to treat it as data.
-- The model gets no tools and its output is only accepted if it passes strict
-  validation against the known variable list; anything else is rejected.
-- Results are cached on disk so demos do not depend on a slow model call.
+- The model gets no tools. Its output is accepted only if it passes the same
+  semantic validation as API rules (known variable, compatible operator and unit,
+  finite values, ordered ranges). Anything else is rejected.
+- Schema validation cannot prove the rule matches the text, so every AI-parsed
+  rule is labeled "Parsed by AI; review before relying on it".
+- Results are cached on disk, keyed by model, prompt version and variable catalog.
 """
 from __future__ import annotations
 
 import hashlib
 import json
 import logging
+import os
 import re
+import tempfile
 from typing import Literal, Optional
 
 from pydantic import BaseModel, ValidationError, field_validator, model_validator
 
 from . import config
 from .models import Rule
-from .variables import VARIABLES
+from .variables import VARIABLES, validate_rule_semantics
 
 log = logging.getLogger("windtunnel.llm")
 
-ALLOWED_UNITS = {None, "x_uln", "10^9/L", "g/dL", "mg/dL", "U/L", "mL/min", "years", "lines"}
+PROMPT_VERSION = "3"
 
 
 class LLMParse(BaseModel):
@@ -38,13 +43,6 @@ class LLMParse(BaseModel):
                          "patient_reported", "unknown"] = "unknown"
     note: Optional[str] = None
 
-    @field_validator("unit")
-    @classmethod
-    def _unit(cls, v):
-        if v not in ALLOWED_UNITS:
-            raise ValueError(f"unit {v!r} not allowed")
-        return v
-
     @field_validator("note")
     @classmethod
     def _note(cls, v):
@@ -52,20 +50,8 @@ class LLMParse(BaseModel):
 
     @model_validator(mode="after")
     def _consistent(self):
-        if not self.simulatable:
-            return self
-        meta = VARIABLES.get(self.variable or "")
-        if meta is None:
-            raise ValueError("unknown variable")
-        if self.operator is None:
-            raise ValueError("operator required")
-        if meta["type"] == "bool" and self.operator not in ("present", "absent"):
-            raise ValueError("boolean variables need present/absent")
-        if meta["type"] != "bool":
-            if self.operator in ("present", "absent") or self.value is None:
-                raise ValueError("numeric variables need a value")
-            if self.operator == "between" and self.value_max is None:
-                raise ValueError("between needs value_max")
+        if self.simulatable:
+            validate_rule_semantics(self.variable, self.operator, self.value, self.value_max, self.unit)
         return self
 
 
@@ -96,37 +82,55 @@ Allowed variables:
 
 Return JSON with keys: simulatable (bool), variable (one allowed name or null), operator
 (">=", "<=", ">", "<", "==", "between", "present", "absent" or null), value (number or null),
-value_max (number or null), unit (one of "x_uln", "10^9/L", "g/dL", "mg/dL", "U/L", "mL/min",
-"years", "lines" or null), purpose ("safety", "predictive_enrichment", "prognostic_enrichment",
+value_max (number or null), unit (null for the variable's own unit, or "x_uln" for multiples of the
+upper limit of normal where allowed), purpose ("safety", "predictive_enrichment", "prognostic_enrichment",
 "reduce_variability", "administrative", "unknown"), findability ("coded_lab", "diagnosis_code",
 "structured_field", "chart_review", "patient_reported", "unknown"), note (short string or null).
 
-Rules: set simulatable=false unless the criterion maps cleanly onto ONE allowed variable.
+Set simulatable=false when ANY of these is true:
+- the criterion does not map cleanly onto exactly ONE allowed variable;
+- it contains alternatives joined by OR, or several separate requirements;
+- it applies only to a subgroup ("for patients with X, Y must ...", "if ...");
+- it describes something different from the variable (do not substitute a related variable);
+- thresholds, units or the measurement method are unclear.
+Never substitute pregnancy for breastfeeding. Do not convert absolute GFR (mL/min) to indexed
+eGFR (mL/min/1.73m2); a body-surface-area adjustment would be required.
 For an exclusion, describe the condition that EXCLUDES the patient (for example variable
 "brain_mets", operator "present"). For an inclusion, describe the condition the patient must MEET.
-Boolean variables use "present" or "absent". Use "x_uln" when the threshold is a multiple of the
-upper limit of normal."""
+Boolean variables use "present" or "absent" with no value."""
 
 
 def parse_llm_output(raw: str) -> LLMParse | None:
     """Strictly validate model output. Returns None (rejected) if anything is off."""
     if not raw:
         return None
-    s = raw.strip()
-    s = re.sub(r"^```(?:json)?\s*|\s*```$", "", s)
+    s = re.sub(r"^```(?:json)?\s*|\s*```$", "", raw.strip())
     start, end = s.find("{"), s.rfind("}")
     if start == -1 or end == -1:
         return None
     try:
         return LLMParse.model_validate(json.loads(s[start:end + 1]))
-    except (json.JSONDecodeError, ValidationError) as exc:
+    except (json.JSONDecodeError, ValidationError, ValueError) as exc:
         log.warning("Rejected LLM output: %s", str(exc)[:200])
         return None
 
 
+def cache_key(kind: str, text: str) -> str:
+    fingerprint = f"{PROMPT_VERSION}|{SYSTEM_PROMPT}|{_variable_catalog()}"
+    catalog_hash = hashlib.sha256(fingerprint.encode()).hexdigest()[:16]
+    return hashlib.sha256(f"{config.LLM_MODEL}|{catalog_hash}|{kind}|{text}".encode()).hexdigest()
+
+
 def _cache_path(kind: str, text: str):
-    key = hashlib.sha256(f"{config.LLM_MODEL}|{kind}|{text}".encode()).hexdigest()
-    return config.CACHE_DIR / "llm" / f"{key}.json"
+    return config.CACHE_DIR / "llm" / f"{cache_key(kind, text)}.json"
+
+
+def _write_atomic(path, content: str) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    fd, tmp = tempfile.mkstemp(dir=path.parent, suffix=".tmp")
+    with os.fdopen(fd, "w", encoding="utf-8") as f:
+        f.write(content)
+    os.replace(tmp, path)
 
 
 def _client():
@@ -137,6 +141,7 @@ def _client():
         api_key=config.CHALK_ROUTER_API_KEY,
         default_headers={"X-Chalk-Env-Id": config.CHALK_ENV_ID, "x-chalk-request-tag": "windtunnel-parser"},
         timeout=config.LLM_TIMEOUT_S,
+        max_retries=config.LLM_MAX_RETRIES,
     )
 
 
@@ -150,34 +155,39 @@ def call_model(kind: str, text: str) -> str:
     return resp.choices[0].message.content or ""
 
 
-def classify(rule: Rule) -> LLMParse | None:
-    """Ask the model about one unparsed criterion, using the on-disk cache first."""
-    path = _cache_path(rule.kind, rule.text)
+def classify(rule: Rule) -> tuple[LLMParse | None, bool]:
+    """Ask the model about one unparsed criterion. Returns (result, from_cache)."""
+    text = rule.clause or rule.text
+    path = _cache_path(rule.kind, text)
     if path.exists():
-        return parse_llm_output(path.read_text(encoding="utf-8"))
-    raw = call_model(rule.kind, rule.text)
-    result = parse_llm_output(raw)
+        return parse_llm_output(path.read_text(encoding="utf-8")), True
+    result = parse_llm_output(call_model(rule.kind, text))
     log.info("LLM classified %s: %s", rule.id, "accepted" if result else "rejected")
     if result is not None:
-        path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text(result.model_dump_json(), encoding="utf-8")
-    return result
+        _write_atomic(path, result.model_dump_json())
+    return result, False
 
 
-def apply(rule: Rule, parsed: LLMParse) -> Rule:
-    meta = VARIABLES.get(parsed.variable or "")
-    notes = list(rule.notes) + ["Parsed by AI; review before relying on it."]
+def apply(rule: Rule, parsed: LLMParse, from_cache: bool = False) -> Rule:
+    """Build a new, fully validated rule from an accepted model answer."""
+    provenance = f"Parsed by AI ({config.LLM_MODEL or 'model'}, prompt v{PROMPT_VERSION}"
+    provenance += ", cached)" if from_cache else ")"
+    notes = list(rule.notes) + [provenance + "; review before relying on it."]
     if parsed.note:
-        notes.append(parsed.note)
-    if not parsed.simulatable:
-        return rule.model_copy(update={"purpose": parsed.purpose, "findability": parsed.findability,
-                                       "parsed_by": "llm", "notes": notes})
-    category = "lab" if meta and meta["findability"] == "coded_lab" and meta["type"] == "numeric" else "condition"
-    return rule.model_copy(update={
-        "variable": parsed.variable, "operator": parsed.operator, "value": parsed.value,
-        "value_max": parsed.value_max, "unit": parsed.unit, "simulatable": True, "category": category,
-        "purpose": parsed.purpose if parsed.purpose != "unknown" else (meta["purpose"] if meta else "unknown"),
-        "findability": parsed.findability if parsed.findability != "unknown" else (meta["findability"] if meta else "unknown"),
-        "safety_critical": meta["safety_critical"] if meta else False,
-        "parsed_by": "llm", "notes": notes,
-    })
+        notes.append(f"AI note: {parsed.note}")
+    data = rule.model_dump()
+    data.update(parsed_by="llm", notes=notes[:20], purpose=parsed.purpose, findability=parsed.findability)
+    if parsed.simulatable:
+        meta = VARIABLES[parsed.variable]
+        data.update(
+            variable=parsed.variable, operator=parsed.operator, value=parsed.value, value_max=parsed.value_max,
+            unit=parsed.unit, simulatable=True, fidelity="approximate",
+            category="lab" if meta["findability"] == "coded_lab" and meta["type"] == "numeric" else "condition",
+            purpose=parsed.purpose if parsed.purpose != "unknown" else meta["purpose"],
+            findability=parsed.findability if parsed.findability != "unknown" else meta["findability"],
+            safety_critical=meta["safety_critical"],
+        )
+    try:
+        return Rule.model_validate(data)
+    except ValidationError:
+        return rule.model_copy(update={"notes": rule.notes + ["AI answer failed validation; not modeled."]})

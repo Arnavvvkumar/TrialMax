@@ -5,6 +5,7 @@ can edit. They are heuristics, not clinical judgments.
 """
 from __future__ import annotations
 
+import math
 from typing import Literal, TypedDict
 
 VarType = Literal["numeric", "bool", "int"]
@@ -42,7 +43,8 @@ VARIABLES: dict[str, VariableMeta] = {
     "platelets": _num("Platelets", "10^9/L", ORGAN),
     "hemoglobin": _num("Hemoglobin", "g/dL", ORGAN),
     "creatinine": _num("Serum creatinine", "mg/dL", ORGAN),
-    "egfr": _num("eGFR / creatinine clearance", "mL/min", ORGAN),
+    "egfr": _num("eGFR (CKD-EPI 2021)", "mL/min/1.73m2", ORGAN),
+    "crcl": _num("Creatinine clearance (Cockcroft-Gault)", "mL/min", ORGAN),
     "bilirubin": _num("Total bilirubin", "mg/dL", ORGAN),
     "ast": _num("AST", "U/L", ORGAN),
     "alt": _num("ALT", "U/L", ORGAN),
@@ -84,13 +86,62 @@ VARIABLES: dict[str, VariableMeta] = {
                                    findability="structured_field", critical=True),
     "myocarditis_history": _flag("History of myocarditis", "Risk of fatal immune-related myocarditis.",
                                  critical=True),
-    "pregnant": _flag("Pregnant or breastfeeding", "Potential harm to a fetus or nursing infant.",
+    "pregnant": _flag("Pregnant", "Potential harm to a fetus; breastfeeding is a separate unmodeled requirement.",
                       findability="coded_lab", critical=True),
+    "female": _flag("Female sex", "Registry sex restriction; often defined by the disease studied.",
+                    purpose="unknown", findability="structured_field"),
 }
 
 # Reference upper limits of normal used to convert "x ULN" thresholds. Assumed values.
 ULN = {"bilirubin": 1.2, "ast": 40.0, "alt": 40.0, "creatinine": 1.2}
 
+# Units a rule may use for each numeric variable. None means the variable's canonical unit.
+ALLOWED_UNITS: dict[str, set[str | None]] = {
+    "age": {None, "years"},
+    "ecog": {None},
+    "anc": {None, "10^9/L"},
+    "platelets": {None, "10^9/L"},
+    "hemoglobin": {None, "g/dL"},
+    "creatinine": {None, "mg/dL", "x_uln"},
+    "egfr": {None, "mL/min/1.73m2"},
+    "crcl": {None, "mL/min"},
+    "bilirubin": {None, "mg/dL", "x_uln"},
+    "ast": {None, "U/L", "x_uln"},
+    "alt": {None, "U/L", "x_uln"},
+    "prior_systemic_lines": {None, "lines"},
+}
+NUMERIC_OPERATORS = {">=", "<=", ">", "<", "==", "between"}
+BOOL_OPERATORS = {"present", "absent"}
+
 
 def meta_for(variable: str | None) -> VariableMeta | None:
     return VARIABLES.get(variable) if variable else None
+
+
+def validate_rule_semantics(variable, operator, value, value_max, unit) -> None:
+    """Raise ValueError unless the rule is something the simulator can evaluate faithfully.
+
+    Shared by API input validation and LLM output validation.
+    """
+    meta = VARIABLES.get(variable or "")
+    if meta is None:
+        raise ValueError(f"unknown variable {variable!r}")
+    if meta["type"] == "bool":
+        if operator not in BOOL_OPERATORS:
+            raise ValueError(f"{variable} is yes/no and needs operator 'present' or 'absent'")
+        if value is not None or value_max is not None or unit is not None:
+            raise ValueError(f"{variable} is yes/no and takes no value or unit")
+        return
+    if operator not in NUMERIC_OPERATORS:
+        raise ValueError(f"{variable} is numeric and needs a comparison operator")
+    if value is None or not math.isfinite(value):
+        raise ValueError(f"{variable} needs a finite value")
+    if operator == "between":
+        if value_max is None or not math.isfinite(value_max):
+            raise ValueError("'between' needs a finite value_max")
+        if value_max < value:
+            raise ValueError("'between' needs value_max >= value")
+    elif value_max is not None:
+        raise ValueError("value_max is only used with 'between'")
+    if unit not in ALLOWED_UNITS.get(variable, {None}):
+        raise ValueError(f"unit {unit!r} is not valid for {variable}")

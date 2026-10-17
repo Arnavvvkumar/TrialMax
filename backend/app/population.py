@@ -10,7 +10,7 @@ from functools import lru_cache
 
 import numpy as np
 
-POPULATION_VERSION = "synthetic-oncology-v0"
+POPULATION_VERSION = "synthetic-oncology-v1"
 
 PREVALENCE = {
     "brain_mets": 0.12,
@@ -40,7 +40,10 @@ ASSUMPTIONS = [
     "Age ~ Normal(64, 11), limited to 18-95. Sex 50/50.",
     "ECOG 0/1/2/3/4 = 30/40/18/9/3%.",
     "Labs are log-normal around typical adult values (ANC 4.0, platelets 240, creatinine 0.9, "
-    "bilirubin 0.6, AST 24, ALT 22); hemoglobin ~ Normal(12.0, 1.7). eGFR from CKD-EPI 2021.",
+    "bilirubin 0.6, AST 24, ALT 22); hemoglobin ~ Normal(12.0, 1.7).",
+    "eGFR (mL/min/1.73m2) from CKD-EPI 2021. Creatinine clearance (mL/min) from Cockcroft-Gault "
+    "using weight ~ Normal(84, 16) kg for men and Normal(72, 16) kg for women, limited to 40-160. "
+    "A measured (urine) creatinine clearance would differ.",
     "x ULN thresholds use ULN: bilirubin 1.2 mg/dL, AST/ALT 40 U/L, creatinine 1.2 mg/dL.",
     "Prior systemic lines ~ Poisson(1.2). Condition prevalences are rough planning assumptions.",
     "Variables are independent; real correlations (for example age and ECOG) are not modeled.",
@@ -56,11 +59,17 @@ def ckd_epi_2021(creatinine: np.ndarray, age: np.ndarray, female: np.ndarray) ->
     return egfr * np.where(female, 1.012, 1.0)
 
 
+def cockcroft_gault(creatinine: np.ndarray, age: np.ndarray, weight: np.ndarray, female: np.ndarray) -> np.ndarray:
+    crcl = (140 - age) * weight / (72 * creatinine)
+    return crcl * np.where(female, 0.85, 1.0)
+
+
 def _generate(n: int, seed: int) -> dict[str, np.ndarray]:
     rng = np.random.default_rng(seed)
     age = np.clip(np.round(rng.normal(64, 11, n)), 18, 95)
     female = rng.random(n) < 0.5
     creatinine = rng.lognormal(np.log(0.9), 0.30, n)
+    weight = np.clip(np.where(female, rng.normal(72, 16, n), rng.normal(84, 16, n)), 40, 160)
     pop: dict[str, np.ndarray] = {
         "age": age,
         "female": female,
@@ -69,7 +78,9 @@ def _generate(n: int, seed: int) -> dict[str, np.ndarray]:
         "platelets": rng.lognormal(np.log(240), 0.35, n),
         "hemoglobin": np.clip(rng.normal(12.0, 1.7, n), 5, 18),
         "creatinine": creatinine,
+        "weight": weight,
         "egfr": ckd_epi_2021(creatinine, age, female),
+        "crcl": cockcroft_gault(creatinine, age, weight, female),
         "bilirubin": rng.lognormal(np.log(0.6), 0.5, n),
         "ast": rng.lognormal(np.log(24), 0.5, n),
         "alt": rng.lognormal(np.log(22), 0.55, n),
