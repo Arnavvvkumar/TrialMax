@@ -1,0 +1,10 @@
+{
+  "patients": [
+    {"id": "P001", "age": 34, "ecog": 0, "anc": 3.2, "platelets": 220, "hemoglobin": 13.1, "creatinine": 0.8, "egfr": 98, "crcl": 112, "bilirubin": 0.5, "ast": 22, "alt": 20, "prior_systemic_lines": 0, "female": true, "pregnant": false, "brain_mets": false, "active_infection": false},
+    {"id": "P002", "age": 72, "ecog": 2, "anc": 0.9, "platelets": 150, "hemoglobin": 10.8, "creatinine": 1.1, "egfr": 62, "crcl": 58, "bilirubin": 0.8, "ast": 34, "alt": 29, "prior_systemic_lines": 2, "female": false, "pregnant": false, "brain_mets": false, "active_infection": false},
+    {"id": "P003", "age": 58, "ecog": 1, "anc": 2.4, "platelets": 195, "hemoglobin": 12.4, "creatinine": 0.9, "egfr": 81, "crcl": 76, "bilirubin": 0.6, "ast": 24, "alt": 25, "prior_systemic_lines": 1, "female": true, "pregnant": false, "brain_mets": true, "active_infection": false},
+    {"id": "P004", "age": 46, "ecog": 1, "anc": 3.8, "platelets": 255, "hemoglobin": 13.6, "creatinine": 0.7, "egfr": 105, "crcl": 101, "bilirubin": 0.4, "ast": 19, "alt": 18, "prior_systemic_lines": 0, "female": true, "pregnant": true, "brain_mets": false, "active_infection": false},
+    {"id": "P005", "age": 65, "ecog": 1, "anc": 2.1, "platelets": 180, "hemoglobin": 11.9, "creatinine": 1.0, "egfr": 70, "crcl": 66, "bilirubin": 0.7, "ast": 28, "alt": 31, "prior_systemic_lines": 1, "female": false, "pregnant": false, "brain_mets": false, "active_infection": true},
+    {"id": "P006", "age": 51, "ecog": 0, "anc": 2.7, "platelets": 205, "hemoglobin": 12.8, "creatinine": 0.8, "egfr": 90, "crcl": 88, "bilirubin": 0.5, "ast": 21, "alt": 22, "prior_systemic_lines": 1, "female": false, "pregnant": false, "brain_mets": false}
+  ]
+}

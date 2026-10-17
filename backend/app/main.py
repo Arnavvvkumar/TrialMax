@@ -14,6 +14,7 @@ from fastapi.responses import JSONResponse
 
 from . import config
 from .ctgov import TrialNotFound, fetch_trial
+from .fixed_patients import simulate_fixed
 from .models import (
     AnalyzeRequest, AnalyzeResponse, CompareRequest, CompareResult, SimulateRequest,
     SimulationResult, TrialInfo,
@@ -168,7 +169,7 @@ def analyze(req: AnalyzeRequest):
 
 @app.post("/api/simulate", response_model=SimulationResult, dependencies=[Depends(heavy_request)])
 def simulate_rules(req: SimulateRequest):
-    return simulate(req.rules, req.population_size, req.seed)
+    return simulate_fixed(req.rules)
 
 
 @app.post("/api/compare", response_model=CompareResult, dependencies=[Depends(heavy_request)])
