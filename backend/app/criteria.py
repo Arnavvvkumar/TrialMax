@@ -49,7 +49,7 @@ class RawCriterion:
 def normalize_text(text: str) -> str:
     """Undo registry markdown escapes and unify symbols, keeping the wording."""
     t = text.replace("\r\n", "\n")
-    t = re.sub(r"\\([\[\]<>*_()#+.!-])", r"\1", t)
+    t = re.sub(r"\\([\[\]<>*_()#+.!^-])", r"\1", t)   # e.g. 10\^9/L -> 10^9/L
     for a, b in (("\u2265", ">="), ("\u2264", "<="), ("\u00d7", "x"), ("\u2013", "-"),
                  ("\u2014", "-"), ("\u00a0", " "), ("\u2019", "'"), ("\u00b5", "u"), ("\u03bc", "u")):
         t = t.replace(a, b)
@@ -202,7 +202,7 @@ CONDITIONS: list[tuple[str, str]] = [
 
 LABS: list[tuple[str, str]] = [
     ("anc", r"absolute neutrophil count|\banc\b|neutrophil"),
-    ("platelets", r"platelet"),
+    ("platelets", r"platelet|\bplts?\b"),
     ("hemoglobin", r"ha?emoglobin|\bhgb\b|\bhb\b"),
     ("crcl", r"creatinine clearance|\bcr\s?cl\b"),
     ("egfr", r"\begfr\b|estimated glomerular filtration|glomerular filtration rate|\bgfr\b"),
@@ -262,7 +262,8 @@ def _leftover_bounds(s: str, consumed: list[tuple[int, int]]) -> bool:
 def parse_age(s: str) -> Parsed | Unmodeled | None:
     if not _AGE_CONTEXT.search(s):
         return None
-    m = (re.search(r"(?:\baged?|between|from)\s*(\d{1,3})\s*(?:-|to|and)\s*(\d{1,3})\s*(?:years|yrs)", s)
+    m = (re.search(r"(?:\baged?|between|from)\s*(\d{1,3})\s*(?:(?:years?|yrs?)(?:\s*(?:of age|old))?\s*)?"
+                   r"(?:-|to|and)\s*(\d{1,3})\s*(?:years|yrs)", s)
          or re.search(r"\b(\d{1,3})\s*(?:-|to)\s*(\d{1,3})\s*years?\s*(?:of age|old)", s))
     if m:
         lo, hi = float(m.group(1)), float(m.group(2))
@@ -583,18 +584,41 @@ def _is_compound(items: list[Parsed], s: str, kind: str) -> bool:
     return False
 
 
-def _unconsumed_bounds(s: str, items: list[Parsed]) -> bool:
-    # Parenthetical subgroup exceptions already carry an approximation warning.
-    # Every other comparison must belong to a parsed item, including repeated
-    # bounds on the same variable that the individual regexes may not support.
+# Labs trials often list that the simulator has no variable for.
+UNMODELED_LAB_RE = re.compile(
+    r"\bwbc\b|white blood cell|leukocyte|\balbumin\b|\binr\b|\ba?ptt\b|prothrombin|lymphocyte|\bldh\b|"
+    r"lactate dehydrogenase|alkaline phosphatase|\balp\b|amylase|lipase|magnesium|potassium|calcium|sodium|"
+    r"\btsh\b|troponin|urine protein|proteinuria|\blvef\b|ejection fraction|\bqtc\b")
+
+
+def _unconsumed_bounds(s: str, items: list[Parsed]) -> tuple[bool, list[str]]:
+    """Return (blocking, separately_unmodeled) for comparisons not owned by a parsed item.
+
+    Parenthetical subgroup exceptions already carry an approximation warning. A comparison
+    that directly follows a lab we do not model (e.g. 'WBC>=3.5') in a comma/AND list is its
+    own requirement: it is kept as a visible unmodeled part instead of discarding the labs we
+    can model. Any other leftover comparison (an extra bound on a modeled variable, or an
+    unnamed number) still blocks the clause. OR lists are never split.
+    """
+    spans = [span for p in items for span in (p.spans or [(p.start, p.end)])]
     exceptions = [m.span() for m in re.finditer(r"\([^)]*\b(?:if|unless|except)\b[^)]*\)", s)]
+    has_or = any(not any(a <= m.start() < b for a, b in spans) for m in re.finditer(r"\bor\b", s))
+    separate: list[str] = []
     for bound in THRESHOLD_RE.finditer(s):
-        if any(a <= bound.start() < b for p in items for a, b in (p.spans or [(p.start, p.end)])):
+        if any(a <= bound.start() < b for a, b in spans):
             continue
         if any(a <= bound.start() < b for a, b in exceptions) and any(p.approximate for p in items):
             continue
-        return True
-    return False
+        prefix = s[:bound.start()]
+        cut = max([prefix.rfind(ch) for ch in ",;:"] + [b for a, b in spans if b <= bound.start()] + [-1])
+        segment = prefix[cut + 1:]
+        if not has_or and UNMODELED_LAB_RE.search(segment) and not any(re.search(p, segment) for _, p in LABS):
+            unit = re.match(r"[^,;]*", s[bound.end():]).group(0).strip()
+            separate.append(f"{(segment.strip() + ' ' + bound.group(0).strip() + ' ' + unit).strip()} "
+                            "(no cohort field for this lab; not modeled)")
+            continue
+        return True, []
+    return False, separate
 
 
 def _unparsed_conjuncts(s: str, items: list[Parsed]) -> list[str]:
@@ -621,8 +645,13 @@ def _unparsed_conjuncts(s: str, items: list[Parsed]) -> list[str]:
     return leftovers
 
 
+BOTH_SEXES_RE = re.compile(r"\b(?:males?|men) (?:or|and) (?:females?|women)\b|\b(?:females?|women) (?:or|and) (?:males?|men)\b")
+
+
 def parse_clause(clause: str, kind: str) -> ClauseResult:
     s = cmp_normalize(normalize_text(clause))
+    # "Males or females" places no restriction; its "or" must not trigger compound-logic refusal.
+    s = BOTH_SEXES_RE.sub("participants", s)
     if len(re.findall(r"[a-z]{2,}", s)) < 2 and not re.search(r"\d", s):
         return ClauseResult(clause, "filler")
     if kind == "inclusion" and CONDITIONAL_RE.search(s):
@@ -661,9 +690,12 @@ def parse_clause(clause: str, kind: str) -> ClauseResult:
     if _is_compound(items, s, kind):
         return ClauseResult(clause, "compound", notes=[
             "Combines requirements with OR/AND in a way the simulator cannot represent; not modeled."])
-    if items and _unconsumed_bounds(s, items):
-        return ClauseResult(clause, "unmodeled", notes=[
-            "Additional numeric bounds could not be read completely; the clause is not modeled."])
+    if items:
+        blocking, separate_labs = _unconsumed_bounds(s, items)
+        if blocking:
+            return ClauseResult(clause, "unmodeled", notes=[
+                "Additional numeric bounds could not be read completely; the clause is not modeled."])
+        failures.extend(f"Additional requirement is not modeled: {text}" for text in separate_labs)
     if items:
         unparsed = _unparsed_conjuncts(s, items)
         unsafe_connector = "or" if kind == "inclusion" else "and"
