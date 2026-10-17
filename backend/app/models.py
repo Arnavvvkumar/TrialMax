@@ -238,6 +238,45 @@ class ScenarioReviewResponse(BaseModel):
     summary: str
 
 
+class RareReachRequest(BaseModel):
+    nct_id: str = Field(min_length=11, max_length=20)
+    rules: list[Rule] = Field(default_factory=list, max_length=MAX_RULES)
+
+
+class RecruitmentSite(BaseModel):
+    name: str
+    city: Optional[str] = None
+    region: Optional[str] = None
+    country: Optional[str] = None
+    historical_trial_count: int
+    matching_nct_ids: list[str]
+    source_urls: list[str]
+    explanation: str
+
+
+class RecruitmentStrategy(BaseModel):
+    rule_id: str
+    criterion: str
+    safety_sensitive: bool
+    option_a: str
+    option_b: str
+
+
+class RareReachResponse(BaseModel):
+    trial: TrialInfo
+    query_terms: list[str]
+    orpha_code: Optional[str] = None
+    orpha_status: str
+    orpha_preferred_name: Optional[str] = None
+    orpha_synonyms: list[str] = Field(default_factory=list)
+    hospitals: list[RecruitmentSite]
+    nord_url: str
+    nord_candidate_url: Optional[str] = None
+    strategies: list[RecruitmentStrategy]
+    sources: list[dict[str, str]]
+    warnings: list[str]
+
+
 class RuleChange(BaseModel):
     rule_id: str
     change: Literal["added", "removed", "disabled", "enabled", "tightened", "relaxed", "mixed", "ambiguous"]

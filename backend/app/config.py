@@ -29,6 +29,10 @@ CHALK_FEATURE_BRANCH = os.getenv("CHALK_FEATURE_BRANCH", "")
 CHALK_TRIAL_SOURCE = os.getenv("CHALK_TRIAL_SOURCE", "auto").strip().lower()
 CHALK_SQL_ENV_ID = os.getenv("CHALK_SQL_ENV_ID", CHALK_ENV_ID)
 CHALK_SQL_TIMEOUT_S = _float("CHALK_SQL_TIMEOUT_S", 20)
+RARE_REACH_TIMEOUT_S = _float("RARE_REACH_TIMEOUT_S", 15)
+RARE_REACH_MAX_STUDIES = _int("RARE_REACH_MAX_STUDIES", 100)
+RARE_REACH_MAX_SITES = _int("RARE_REACH_MAX_SITES", 25)
+ORPHADATA_API_BASE = os.getenv("ORPHADATA_API_BASE", "https://api.orphadata.com").rstrip("/")
 
 # LLM time and work budget for one analysis
 LLM_TIMEOUT_S = _float("LLM_TIMEOUT_S", 30)          # one call
