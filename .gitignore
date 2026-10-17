@@ -4,6 +4,7 @@
 !.env.example
 *.pem
 *.key
+*.parquet
 
 # Python
 .venv/
@@ -16,7 +17,7 @@ __pycache__/
 # Node
 node_modules/
 frontend/dist/
-frontend/tsconfig.tsbuildinfo
+*.tsbuildinfo
 
 # OS / editor
 .DS_Store

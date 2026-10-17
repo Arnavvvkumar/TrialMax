@@ -3,6 +3,7 @@ from fastapi.testclient import TestClient
 from app.feature_sources import ChalkFeatureSource, required_features
 from app.main import app
 from app.models import Rule
+from app.models import PopulationChoice
 from app.scenario_agent import review_scenario
 
 
@@ -34,8 +35,8 @@ def test_chalk_source_normalizes_feature_rows_from_injected_client():
 
 
 def test_scenario_review_uses_fixed_cohort_and_returns_provenance():
-    response = review_scenario([rule("age", "age", ">=", 70)], [rule("age", "age", ">=", 60)])
-    assert response.data_source == "local-json"
+    response = review_scenario([rule("age", "age", ">=", 70)], [rule("age", "age", ">=", 60)], PopulationChoice())
+    assert response.data_source == "local-fixed-cohort"
     assert response.comparison.eligible_change_n > 0
     assert "synthetic patients" in response.summary
 
@@ -46,10 +47,10 @@ def test_scenario_review_endpoint_defaults_to_local_source():
     with TestClient(app) as client:
         response = client.post("/api/scenario-review", json=body)
     assert response.status_code == 200
-    assert response.json()["data_source"] == "local-json"
+    assert response.json()["data_source"] == "local-fixed-cohort"
 
 
 def test_requested_chalk_source_falls_back_without_chalk_configuration():
-    response = review_scenario([rule("age", "age", ">=", 70)], [rule("age", "age", ">=", 60)], "chalk")
-    assert response.data_source == "local-json-fallback"
-    assert "Chalk was unavailable" in response.summary
+    response = review_scenario([rule("age", "age", ">=", 70)], [rule("age", "age", ">=", 60)], PopulationChoice(), "chalk")
+    assert response.data_source == "local-fixed-cohort-chalk-fallback"
+    assert "Chalk patient features are unavailable" in response.summary

@@ -6,23 +6,25 @@ import logging
 import threading
 import time
 from collections import deque
+from pathlib import Path
 
 import httpx
 from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, FileResponse
+from fastapi.staticfiles import StaticFiles
 
-from . import config
+from . import config, llm
 from .chalk_trials import ChalkTrialError, ChalkTrialNotFound, fetch_chalk_trial
 from .ctgov import TrialNotFound, fetch_trial
-from .fixed_patients import simulate_fixed
+from .cohorts import population_catalog, simulate_population, compare_population, trial_population_warnings
 from .models import (
-    AnalyzeRequest, AnalyzeResponse, CompareRequest, CompareResult, SimulateRequest,
-    ScenarioReviewRequest, ScenarioReviewResponse, SimulationResult, TrialInfo,
+    AnalyzeRequest, AnalyzeResponse, CompareRequest, CompareResult, ScenarioReviewRequest,
+    ScenarioReviewResponse, SimulateRequest,
+    SimulationResult, TrialInfo,
 )
 from .pipeline import parse_eligibility
 from .registry import registry_rules
-from .simulate import compare, coverage_warnings, simulate
 from .scenario_agent import review_scenario
 from .variables import VARIABLES
 
@@ -151,7 +153,10 @@ def _get_trial(nct_id: str, source: str = "auto") -> TrialInfo:
 
 @app.get("/api/health")
 def health():
-    return {"status": "ok", "llm_configured": config.llm_configured(), "model": config.LLM_MODEL or None}
+    missing = [name for name in ("CHALK_ROUTER_API_KEY", "CHALK_ENV_ID", "LLM_MODEL") if not getattr(config, name)]
+    return {"status": "ok", "llm_configured": config.llm_configured(), "model": config.LLM_MODEL or None,
+            "llm_status": "configured_not_verified" if not missing else "not_configured",
+            "llm_missing_configuration": missing}
 
 
 @app.get("/api/variables")
@@ -159,23 +164,31 @@ def variables():
     return VARIABLES
 
 
+@app.post("/api/chalk/check", dependencies=[Depends(heavy_request)])
+def check_chalk():
+    return llm.check_connection()
+
+
+@app.get("/api/populations")
+def populations():
+    return population_catalog()
+
+
 @app.get("/api/trials/{nct_id}", response_model=TrialInfo)
 def get_trial(nct_id: str, source: str = "auto"):
-    if source not in {"auto", "chalk", "ctgov"}:
+    selected = config.CHALK_TRIAL_SOURCE if source == "auto" else source
+    if selected not in {"auto", "chalk", "ctgov"}:
         raise HTTPException(status_code=422, detail="source must be auto, chalk, or ctgov.")
-    selected_source = config.CHALK_TRIAL_SOURCE if source == "auto" else source
-    if selected_source not in {"auto", "chalk", "ctgov"}:
-        raise HTTPException(status_code=500, detail="Invalid CHALK_TRIAL_SOURCE configuration.")
-    return _get_trial(nct_id, selected_source)
+    return _get_trial(nct_id, selected)
 
 
 @app.post("/api/analyze", response_model=AnalyzeResponse, dependencies=[Depends(heavy_request)])
 def analyze(req: AnalyzeRequest):
     if req.nct_id:
-        selected_source = config.CHALK_TRIAL_SOURCE if req.source == "auto" else req.source
-        if selected_source not in {"auto", "chalk", "ctgov"}:
-            raise HTTPException(status_code=500, detail="Invalid CHALK_TRIAL_SOURCE configuration.")
-        trial = _get_trial(req.nct_id, selected_source)
+        selected = config.CHALK_TRIAL_SOURCE if req.source == "auto" else req.source
+        if selected not in {"auto", "chalk", "ctgov"}:
+            raise HTTPException(status_code=422, detail="source must be auto, chalk, or ctgov.")
+        trial = _get_trial(req.nct_id, selected)
     elif req.eligibility_text:
         trial = TrialInfo(eligibility_text=req.eligibility_text, data_source="manual")
     else:
@@ -184,22 +197,35 @@ def analyze(req: AnalyzeRequest):
         raise HTTPException(status_code=422, detail="This trial has no eligibility text on ClinicalTrials.gov.")
     rules, warnings, llm_used = parse_eligibility(trial.eligibility_text, use_llm=req.use_llm)
     rules = registry_rules(trial) + rules
-    sim = simulate(rules, req.population_size, req.seed)
+    sim = simulate_population(rules, req.population)
     return AnalyzeResponse(trial=trial, rules=rules, simulation=sim, llm_used=llm_used,
-                           warnings=warnings + coverage_warnings(sim))
+                           warnings=warnings + sim.warnings + trial_population_warnings(trial, req.population.mode))
 
 
 @app.post("/api/simulate", response_model=SimulationResult, dependencies=[Depends(heavy_request)])
 def simulate_rules(req: SimulateRequest):
-    return simulate_fixed(req.rules)
+    return simulate_population(req.rules, req.population)
 
 
 @app.post("/api/compare", response_model=CompareResult, dependencies=[Depends(heavy_request)])
 def compare_rules(req: CompareRequest):
-    return compare(req.baseline_rules, req.proposed_rules, req.population_size, req.seed)
+    return compare_population(req.baseline_rules, req.proposed_rules, req.population)
 
 
 @app.post("/api/scenario-review", response_model=ScenarioReviewResponse, dependencies=[Depends(heavy_request)])
 def scenario_review(req: ScenarioReviewRequest):
-    """Run a fixed-cohort scenario review through the selected feature source."""
-    return review_scenario(req.baseline_rules, req.proposed_rules, req.source)
+    return review_scenario(req.baseline_rules, req.proposed_rules, req.population, req.source)
+
+
+# A built frontend can be served on the same origin as the API in production.
+FRONTEND_DIST = Path(__file__).resolve().parents[2] / "frontend" / "dist"
+if (FRONTEND_DIST / "assets").is_dir():
+    app.mount("/assets", StaticFiles(directory=FRONTEND_DIST / "assets"), name="assets")
+
+
+@app.get("/", include_in_schema=False)
+def frontend():
+    index = FRONTEND_DIST / "index.html"
+    if index.is_file():
+        return FileResponse(index)
+    return {"status": "backend ready", "frontend": "Run npm ci and npm run build in frontend/ or use the Vite development server.", "docs": "/docs"}

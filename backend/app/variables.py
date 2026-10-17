@@ -90,6 +90,11 @@ VARIABLES: dict[str, VariableMeta] = {
                       findability="coded_lab", critical=True),
     "female": _flag("Female sex", "Registry sex restriction; often defined by the disease studied.",
                     purpose="unknown", findability="structured_field"),
+    "egfr_mutation_positive": _flag("EGFR mutation positive (gene biomarker)",
+        "Simplified synthetic biomarker status; variant-specific eligibility needs expert review.",
+        purpose="predictive_enrichment", findability="coded_lab"),
+    "alk_positive": _flag("ALK rearrangement positive", "Simplified synthetic biomarker status.",
+        purpose="predictive_enrichment", findability="coded_lab"),
 }
 
 # Reference upper limits of normal used to convert "x ULN" thresholds. Assumed values.

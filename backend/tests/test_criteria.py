@@ -23,6 +23,23 @@ def by_id(rules):
     return {r.id: r for r in rules}
 
 
+@pytest.mark.parametrize('text,variable,operator', [
+    ('EGFR mutation positive', 'egfr_mutation_positive', 'present'),
+    ('EGFR mutation negative', 'egfr_mutation_positive', 'absent'),
+    ('Confirmed ALK rearrangement positive status', 'alk_positive', 'present'),
+    ('ALK rearrangement negative', 'alk_positive', 'absent'),
+])
+def test_plain_binary_biomarker_status(text, variable, operator):
+    rule = one('I1', 'inclusion', text)
+    assert (rule.variable, rule.operator) == (variable, operator)
+    assert rule.purpose == 'predictive_enrichment'
+
+
+def test_variant_specific_biomarker_is_not_replaced_with_binary_status():
+    rules = parse_criterion('I1', 'inclusion', 'EGFR exon 19 deletion mutation positive')
+    assert not any(rule.simulatable for rule in rules)
+
+
 # ---------------------------------------------------------------- splitting
 
 def test_split_bulleted_fixture():

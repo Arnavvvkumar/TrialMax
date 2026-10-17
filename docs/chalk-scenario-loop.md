@@ -26,11 +26,11 @@ criteria, title, status, enrollment, gender, and age-limit columns; no
 `source=auto` tries Chalk, then explicitly falls back to ClinicalTrials.gov
 when that dataset lacks the requested NCT ID.
 
-`POST /api/scenario-review` accepts baseline and proposed validated rules. It
-queries the requested synthetic features through Chalk, runs the deterministic
-comparison, and returns a source label and query identifier. If Chalk is not
-configured or unavailable, the endpoint explicitly returns
-`data_source: local-json-fallback` and uses the checked-in synthetic cohort.
+`POST /api/scenario-review` accepts baseline and proposed validated rules plus
+an explicit population choice. It uses the shared deterministic cohort engine
+for pass, fail, unknown, funnel, and overlap results. Requesting its optional
+Chalk patient source is explicitly labeled as a fallback until a `patient.*`
+feature set is deployed; it never changes the deterministic outcome logic.
 
 ## Evaluation
 
