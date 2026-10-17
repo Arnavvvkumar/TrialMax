@@ -14,13 +14,27 @@ from .models import (
 from .simulate import _pct, _threshold
 from .variables import VARIABLES
 
-DATA_PATH = Path(__file__).resolve().parent.parent / "data" / "patients.json"
+DATA_PATH = Path(__file__).resolve().parents[2] / "frontend" / "synthetic_data" / "patients.json"
 Status = Literal["pass", "fail", "unknown"]
+
+_FIELD_MAP = {
+    "age_years": ("age", 1.0),
+    "ecog_score": ("ecog", 1.0),
+    "hemoglobin_g_dl": ("hemoglobin", 1.0),
+    "anc_cells_ul": ("anc", 0.001),
+    "platelets_cells_ul": ("platelets", 0.001),
+    "egfr_kidney_ml_min_1_73m2": ("egfr", 1.0),
+    "ast_u_l": ("ast", 1.0),
+    "alt_u_l": ("alt", 1.0),
+    "prior_systemic_therapy_lines": ("prior_systemic_lines", 1.0),
+    "brain_metastases": ("brain_mets", 1.0),
+    "active_infection": ("active_infection", 1.0),
+}
 
 
 @lru_cache(maxsize=1)
 def load_patients() -> tuple[dict[str, Any], ...]:
-    """Load a fixed, local cohort; accept either a list or {"patients": [...]} JSON."""
+    """Load and normalize the frontend's fixed synthetic cohort."""
     try:
         raw = json.loads(DATA_PATH.read_text(encoding="utf-8"))
     except FileNotFoundError as exc:
@@ -33,13 +47,19 @@ def load_patients() -> tuple[dict[str, Any], ...]:
     cleaned: list[dict[str, Any]] = []
     ids: set[str] = set()
     for index, patient in enumerate(patients):
-        if not isinstance(patient, dict) or patient.get("id") in (None, ""):
-            raise ValueError(f"Fixed patient at index {index} must be an object with an id.")
-        patient_id = str(patient["id"])
+        if not isinstance(patient, dict) or patient.get("patient_id", patient.get("id")) in (None, ""):
+            raise ValueError(f"Fixed patient at index {index} must be an object with a patient_id.")
+        patient_id = str(patient.get("patient_id", patient.get("id")))
         if patient_id in ids:
             raise ValueError(f"Fixed patient data has duplicate id {patient_id!r}.")
         ids.add(patient_id)
-        cleaned.append({**patient, "id": patient_id})
+        normalized: dict[str, Any] = {"id": patient_id}
+        for source, (target, factor) in _FIELD_MAP.items():
+            value = patient.get(source)
+            normalized[target] = value * factor if isinstance(value, (int, float)) and not isinstance(value, bool) else value
+        sex = patient.get("sex_at_birth")
+        normalized["female"] = True if sex == "female" else False if sex == "male" else None
+        cleaned.append(normalized)
     return tuple(cleaned)
 
 
@@ -160,6 +180,6 @@ def simulate_fixed(rules: list[Rule]) -> SimulationResult:
         not_applicable_rule_ids=not_applicable,
         not_simulated_rule_ids=[rule.id for rule in rules if not rule.simulatable],
         impacts=impacts, funnel=funnel, worst_rule_id=worst, sample_excluded=sample,
-        assumptions=["Fixed local synthetic cohort loaded from backend/data/patients.json; not real patients."],
+        assumptions=["Fixed local synthetic cohort loaded from frontend/synthetic_data/patients.json; not real patients."],
         patient_results=outcomes, rule_overlaps=overlaps,
     )

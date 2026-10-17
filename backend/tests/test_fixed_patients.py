@@ -16,23 +16,23 @@ def test_fixed_cohort_returns_each_patient_and_three_way_criterion_status():
         rule("hiv", "exclusion", "hiv", "present"),
     ])
     by_id = {patient.patient_id: patient for patient in result.patient_results}
-    assert len(by_id) == 6
-    assert by_id["P001"].criteria[0].status == "fail"
-    assert by_id["P006"].criteria[1].status == "unknown"
-    assert by_id["P006"].overall_status == "unknown"
+    assert len(by_id) == 500
+    assert by_id["SYN-0001"].criteria[0].status == "pass"
+    assert by_id["SYN-0001"].criteria[1].status == "unknown"
+    assert by_id["SYN-0001"].overall_status == "unknown"
 
 
 def test_fixed_cohort_reports_funnel_and_pairwise_overlap():
     result = simulate_fixed([
-        rule("age", "inclusion", "age", ">=", 60),
+        rule("age", "inclusion", "age", ">=", 70),
         rule("ecog", "inclusion", "ecog", "<=", 1),
         rule("brain", "exclusion", "brain_mets", "present"),
     ])
-    assert result.funnel[0].remaining_n == 6
-    assert result.funnel[-1].remaining_n == 1
-    assert result.funnel[-1].unknown_n == 0
+    assert result.funnel[0].remaining_n == 500
+    assert result.funnel[-1].remaining_n == 29
+    assert result.funnel[-1].unknown_n == 10
     overlaps = {(item.rule_a_id, item.rule_b_id): item.patient_n for item in result.rule_overlaps}
-    assert overlaps[("age", "brain")] == 1
+    assert overlaps[("age", "brain")] == 170
 
 
 def test_simulate_endpoint_uses_fixed_cohort():
@@ -43,5 +43,5 @@ def test_simulate_endpoint_uses_fixed_cohort():
         ]})
     assert response.status_code == 200
     body = response.json()
-    assert body["population_n"] == 6
-    assert len(body["patient_results"]) == 6
+    assert body["population_n"] == 500
+    assert len(body["patient_results"]) == 500
