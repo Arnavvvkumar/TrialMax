@@ -1,7 +1,8 @@
 import os, psycopg2, pandas as pd
+from dotenv import load_dotenv
+load_dotenv()
 
-user="aact_u12256"
-password="qbBMI4AiZbB0tpwOZkFo"
+
 
 
 conn = psycopg2.connect(host="aact-db.ctti-clinicaltrials.org", port=5432, dbname="aact",
