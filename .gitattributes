@@ -1,0 +1,5 @@
+# Exact bytes matter: these files are verified by sha256 (provenance and ground-truth checks).
+# Never convert their line endings on checkout, including on Windows with core.autocrlf=true.
+dataset/rct/*.csv -text
+dataset/rct/*.jsonl -text
+dataset/rct/*.json -text
