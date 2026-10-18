@@ -8,6 +8,12 @@ import { defaultPopulationMode } from '../src/workspace.ts'
 
 const app = readFileSync(new URL('../src/App.tsx', import.meta.url), 'utf8')
 
+test('Responder evidence has its own tab that works without loading a trial', () => {
+  assert.ok(app.includes("id: 'responder' as const"), 'sidebar tab for Responder evidence is missing')
+  const responderBranch = app.indexOf("tab === 'responder' ?"), needsAnalysis = app.indexOf(': !analysis ?')
+  assert.ok(responderBranch > -1 && responderBranch < needsAnalysis, 'Responder tab must render before the "load a trial first" gate')
+})
+
 test('population dropdown is built from the API catalog, not hard-coded', () => {
   assert.ok(app.includes('catalog?.options'), 'dropdown must list the options returned by /api/populations')
   assert.ok(!app.includes('<option value="fixed">'), 'hard-coded "fixed" option is back')
