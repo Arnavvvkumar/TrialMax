@@ -1,0 +1,9 @@
+{
+  "url": "https://vincentarelbundock.github.io/Rdatasets/csv/survival/colon.csv",
+  "downloaded_at": "2026-10-18T03:39:37.164537+00:00",
+  "sha256": "6f3472a64f696e3195daa198f054180c3e4c66408f7fb8c548c6f4c7b8f898ee",
+  "citation": "Moertel et al. NEJM 1990;322:352-358. doi:10.1056/NEJM199002083220602; R survival package colon data.",
+  "publication_url": "https://pubmed.ncbi.nlm.nih.gov/2300087/",
+  "credit": "R survival package; Rdatasets mirror",
+  "documentation_url": "https://vincentarelbundock.github.io/Rdatasets/doc/survival/colon.html"
+}

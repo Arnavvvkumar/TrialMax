@@ -1,0 +1,11 @@
+{
+  "environment": "hmlsd28bca6e",
+  "status": "EvaluationRunStatus.SUCCEEDED",
+  "gateway_probe": {
+    "gateway_callable": false,
+    "status": 401,
+    "credential_available": false
+  },
+  "evaluation_id": "cmvdaa16c0d62013ezzff6ax4",
+  "run_id": "9e086dd1-ba70-4752-89ba-2f3904419f81"
+}

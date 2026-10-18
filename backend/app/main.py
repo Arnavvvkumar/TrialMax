@@ -30,6 +30,8 @@ from .scenario_agent import review_scenario
 from .rare_reach import RareReachError, build_rare_reach
 from .variables import VARIABLES
 from .autopilot import run_autopilot
+from .responder_models import ResponderRequest, ResponderResponse
+from .responder_evidence import responder_evidence
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(name)s %(levelname)s %(message)s")
 log = logging.getLogger("windtunnel.api")
@@ -218,6 +220,11 @@ def compare_rules(req: CompareRequest):
 @app.post("/api/autopilot", response_model=AutopilotResponse, dependencies=[Depends(heavy_request)])
 def suggest_autopilot(req: AutopilotRequest):
     return run_autopilot(req)
+
+
+@app.post('/api/responder-evidence', response_model=ResponderResponse, dependencies=[Depends(heavy_request)])
+def get_responder_evidence(req: ResponderRequest):
+    return responder_evidence(req.trial_key)
 
 
 @app.post("/api/scenario-review", response_model=ScenarioReviewResponse, dependencies=[Depends(heavy_request)])

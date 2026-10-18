@@ -1,0 +1,122 @@
+{
+  "ground_truth_sha256": "bdd5d804a00309b6475dba46607b8350be0c3912ef29909af2858ccfb73eef26",
+  "model": "openai/gpt-6.1-sol",
+  "prompt_sha256": "0235c241047662c49b9f17d38887b16b107fb5a3c189da44e9ae035651ce0264",
+  "recorded_at": "2026-10-18T03:57:40.433368+00:00",
+  "limitations": [
+    "Exploratory statistical reference labels, not clinical truth; not protocol recommendations.",
+    "Undetectable planted targets are retained. Strict planted recall alone cannot establish statistical sensitivity.",
+    "No-significant-interaction does not establish equal treatment effects.",
+    "Partly non-randomized treatment assignment: weaker evidence (GBSG)."
+  ],
+  "status": "complete",
+  "mode": "local_agent_remote_scoring",
+  "runs": [
+    {
+      "prompt_variant": "names_only",
+      "variant": "originals",
+      "n": 3,
+      "scores": {
+        "correct_flag": 1.0,
+        "no_overclaim": 0.3333333333333333,
+        "abstains_when_null": 1.0,
+        "planted_recall": null,
+        "number_fidelity": 1.0,
+        "json_valid": 1.0
+      },
+      "denominators": {
+        "correct_flag": 3,
+        "no_overclaim": 3,
+        "abstains_when_null": 2,
+        "planted_recall": 0,
+        "number_fidelity": 3,
+        "json_valid": 3
+      },
+      "detectable_planted_n": 0,
+      "evaluation_id": "cmvdaoqks0dkv01y5mynvlcli",
+      "run_id": "2d63ccee-c6a4-4618-b7cd-4aaf1f7a105d",
+      "status": "EvaluationRunStatus.SUCCEEDED"
+    },
+    {
+      "prompt_variant": "names_only",
+      "variant": "planted",
+      "n": 9,
+      "scores": {
+        "correct_flag": 0.8888888888888888,
+        "no_overclaim": 0.4444444444444444,
+        "abstains_when_null": 1.0,
+        "planted_recall": 0.0,
+        "number_fidelity": 1.0,
+        "json_valid": 1.0
+      },
+      "denominators": {
+        "correct_flag": 9,
+        "no_overclaim": 9,
+        "abstains_when_null": 6,
+        "planted_recall": 9,
+        "number_fidelity": 9,
+        "json_valid": 9
+      },
+      "detectable_planted_n": 0,
+      "evaluation_id": "cmvdap4zd0dlh01y5pbgp9xs4",
+      "run_id": "4431c23e-f638-48a3-b9f1-a0491fc2cbcf",
+      "status": "EvaluationRunStatus.SUCCEEDED"
+    },
+    {
+      "prompt_variant": "with_stats",
+      "variant": "originals",
+      "n": 3,
+      "scores": {
+        "correct_flag": 1.0,
+        "no_overclaim": 0.3333333333333333,
+        "abstains_when_null": 1.0,
+        "planted_recall": null,
+        "number_fidelity": 1.0,
+        "json_valid": 1.0
+      },
+      "denominators": {
+        "correct_flag": 3,
+        "no_overclaim": 3,
+        "abstains_when_null": 2,
+        "planted_recall": 0,
+        "number_fidelity": 3,
+        "json_valid": 3
+      },
+      "detectable_planted_n": 0,
+      "evaluation_id": "cmvdapjlm0dlq01y5f5vv0zx2",
+      "run_id": "1f94cf93-45b6-4f6d-9f86-d594e6d8eb26",
+      "status": "EvaluationRunStatus.SUCCEEDED"
+    },
+    {
+      "prompt_variant": "with_stats",
+      "variant": "planted",
+      "n": 9,
+      "scores": {
+        "correct_flag": 0.8888888888888888,
+        "no_overclaim": 0.4444444444444444,
+        "abstains_when_null": 1.0,
+        "planted_recall": 0.0,
+        "number_fidelity": 1.0,
+        "json_valid": 1.0
+      },
+      "denominators": {
+        "correct_flag": 9,
+        "no_overclaim": 9,
+        "abstains_when_null": 6,
+        "planted_recall": 9,
+        "number_fidelity": 9,
+        "json_valid": 9
+      },
+      "detectable_planted_n": 0,
+      "evaluation_id": "cmvdapxck0djx014wp8v5rcgw",
+      "run_id": "d2d74359-8a79-4ad8-831a-7ead1beea3fc",
+      "status": "EvaluationRunStatus.SUCCEEDED"
+    }
+  ],
+  "environment": "hmlsd28bca6e",
+  "gateway_probe": {
+    "gateway_callable": false,
+    "status": 401,
+    "credential_available": false
+  }
+}

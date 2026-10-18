@@ -1,0 +1,9 @@
+{
+  "url": "https://vincentarelbundock.github.io/Rdatasets/csv/survival/gbsg.csv",
+  "downloaded_at": "2026-10-18T03:39:37.421161+00:00",
+  "sha256": "9fa0fef0575d04d3273869be28405307f1b02993751498e8a0c844541cccd5d9",
+  "citation": "Schumacher et al. JCO 1994;12:2086-2093. doi:10.1200/JCO.1994.12.10.2086; Royston and Altman BMC Med Res Methodol 2013;13:33; R survival package gbsg data.",
+  "publication_url": "https://pubmed.ncbi.nlm.nih.gov/7931478/",
+  "credit": "R survival package; Rdatasets mirror",
+  "documentation_url": "https://vincentarelbundock.github.io/Rdatasets/doc/survival/gbsg.html"
+}

@@ -1,0 +1,9 @@
+{
+  "url": "https://vincentarelbundock.github.io/Rdatasets/csv/survival/veteran.csv",
+  "downloaded_at": "2026-10-18T03:39:37.260442+00:00",
+  "sha256": "3fba5cb9b15a10ab94d54e28b54d2c39d95c27b0fcff1c57aee0eb7edfd93950",
+  "citation": "Kalbfleisch and Prentice (1980), The Statistical Analysis of Failure Time Data; R survival package veteran data.",
+  "publication_url": "https://vincentarelbundock.github.io/Rdatasets/doc/survival/veteran.html",
+  "credit": "R survival package; Rdatasets mirror",
+  "documentation_url": "https://vincentarelbundock.github.io/Rdatasets/doc/survival/veteran.html"
+}
