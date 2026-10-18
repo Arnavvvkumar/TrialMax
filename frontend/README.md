@@ -1,4 +1,4 @@
-# CliNova frontend
+# TrialMax frontend
 
 React, TypeScript and Vite UI connected to the FastAPI backend. Start the backend on port 8000 using the [repository instructions](../README.md), then run `npm ci` and `npm run dev` here. Node 22.12+ or 24+ is required.
 

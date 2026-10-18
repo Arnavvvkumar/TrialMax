@@ -1,4 +1,4 @@
-"""CliNova API. Run from backend/:  uvicorn app.main:app --reload"""
+"""TrialMax API. Run from backend/:  uvicorn app.main:app --reload"""
 from __future__ import annotations
 
 import hmac
@@ -34,7 +34,7 @@ from .autopilot import run_autopilot
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(name)s %(levelname)s %(message)s")
 log = logging.getLogger("windtunnel.api")
 
-app = FastAPI(title="CliNova API", version="0.2.0")
+app = FastAPI(title="TrialMax API", version="0.2.0")
 
 
 class BodySizeLimitMiddleware:
