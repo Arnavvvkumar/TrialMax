@@ -16,7 +16,7 @@ export function ScenarioReport({ result, comparison, shapley, fullResults, onRev
   const delta = result.modeled_eligible_change_pct_points
   return <section className="card scenario-report" aria-label="Saved draft comparison">
     <div className="card-top"><div><h2>Saved draft comparison</h2><p>Original protocol versus the current draft, on the same synthetic patients.</p></div><span className="badge gray">Compared draft</span></div>
-    <p className="muted">Applying an Autopilot suggestion generates this report automatically. Manual edits need Compare draft. Searching alone does not change the draft.</p>
+    <p className="muted">Suggest smallest safe change saves suggested edits as a draft and generates this report automatically. Manual edits use Compare draft in the manual editor.</p>
     <div className="scenario-report-summary">
       <div><span>Passing modeled checks</span><strong>{count(result.baseline.modeled_eligible_n)} → {count(result.proposed.modeled_eligible_n)}</strong></div>
       <div><span>Change</span><strong>{delta === null ? 'Unavailable' : `${delta > 0 ? '+' : ''}${delta.toFixed(2)} pp`}</strong></div>

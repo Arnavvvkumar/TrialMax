@@ -10,10 +10,9 @@ interface Props {
   rules: Rule[]; population: PopulationChoice; disabled: boolean; llmConfigured: boolean
   onApply: (actions: ThresholdEditAction[]) => void
   onSearchChange: () => void
-  onCompare: () => void
 }
 
-export function AutopilotCard({ rules, population, disabled, llmConfigured, onApply, onSearchChange, onCompare }: Props) {
+export function AutopilotCard({ rules, population, disabled, llmConfigured, onApply, onSearchChange }: Props) {
   const [maxEdits, setMaxEdits] = useState(3), [target, setTarget] = useState(80), [useLlm, setUseLlm] = useState(false)
   const [result, setResult] = useState<{ data: AutopilotResponse; signature: string } | null>(null)
   const [pending, setPending] = useState(false), [error, setError] = useState(''), [applied, setApplied] = useState(false)
@@ -40,16 +39,13 @@ export function AutopilotCard({ rules, population, disabled, llmConfigured, onAp
       const data = await suggestAutopilot(rules, population, maxEdits, target / 100, useLlm, abort.signal)
       if (abort.signal.aborted || requestId !== sequence.current) return
       if (data.cohort_id !== population.cohort_id) throw new Error('Cohort mismatch. Rerun the baseline before requesting a suggestion.')
+      if (data.plan.length > 0) {
+        const actions = planToEditActions(data, rules, population.cohort_id!)
+        onApply(actions); setApplied(true)
+      }
       setResult({ data, signature })
     } catch (cause) { if (!abort.signal.aborted && requestId === sequence.current) setError(String(cause)) }
     finally { if (requestId === sequence.current) setPending(false) }
-  }
-  function apply() {
-    if (!current || !population.cohort_id) return
-    try {
-      const actions = planToEditActions(current, rules, population.cohort_id)
-      onApply(actions); setApplied(true)
-    } catch (cause) { setError(String(cause)) }
   }
   return <section className="card autopilot-card" aria-label="What-if Autopilot">
     <div className="card-top"><h2><Sparkles size={19} /> What-if Autopilot</h2></div>
@@ -60,14 +56,15 @@ export function AutopilotCard({ rules, population, disabled, llmConfigured, onAp
       <label className="checkbox-label"><input type="checkbox" checked={useLlm} disabled={!llmConfigured} onChange={event => { settingsChanged(); setUseLlm(event.target.checked) }} />Optional Chalk narration</label>
     </div>
     <button className="btn primary" disabled={disabled || pending || !valid} onClick={suggest}>{pending ? 'Searching simulator scenarios…' : 'Suggest smallest safe change'}</button>
+    <p className="muted">Finds a suggestion, saves it as a draft, and compares it automatically. Review and acceptance remain your decision.</p>
     <p className="muted">Maximum edits is a limit, not an exact number. The target is a share of the possible gain, not the percentage of patients eligible.</p>
-    {phase === 'searching' && <p className="autopilot-stage" role="status">Searching with at most {maxEdits} edits and a {target}% target. No draft changes or comparison are being made.</p>}
+    {phase === 'searching' && <p className="autopilot-stage" role="status">Searching with at most {maxEdits} edits and a {target}% target. Any suggested edits will be saved as a draft and compared automatically.</p>}
     {phase === 'settings_changed' && <p className="autopilot-stage" role="status">Search settings or draft changed. The previous suggestion is hidden. Click Suggest smallest safe change to run the new search.</p>}
-    {phase === 'ready' && !error && <p className="autopilot-stage" role="status">Your first search will show a suggestion here. Nothing is applied automatically.</p>}
+    {phase === 'ready' && !error && <p className="autopilot-stage" role="status">Click Suggest smallest safe change to generate your draft comparison.</p>}
     {error && <p className="error-notice" role="alert">{error}</p>}
-    {applied && <div className="notice autopilot-applied" role="status"><span>Changes saved as a draft. The comparison runs automatically below; researcher review is still required.</span><button className="btn outline" disabled={disabled} onClick={onCompare}>Recompare draft</button></div>}
+    {applied && <div className="notice autopilot-applied" role="status">Changes saved as a draft. The comparison runs automatically below; researcher review is still required.</div>}
     {current && !pending && !applied && <div className="autopilot-results">
-      <div className="autopilot-stage" role="status"><strong>Suggestion ready · at most {maxEdits} edits · {target}% target</strong><p>Apply as draft to save these edits and automatically generate the comparison below. Nothing is accepted automatically.</p>{current.plan.length > 0 && <button className="btn primary" disabled={disabled || pending} onClick={apply}>Apply as draft</button>}</div>
+      <div className="autopilot-stage" role="status"><strong>Search complete · at most {maxEdits} edits · {target}% target</strong><p>No changes were applied because this search returned no eligible edits.</p></div>
       <p>{current.summary}</p><p className="muted">Starting modeled passing: {current.baseline_modeled_eligible_n ?? 'Unavailable'} · All-rule table maximum gain: {current.max_achievable_gain} · Target gain: {current.target_gain} · Simulations: {current.simulation_count}/{current.simulation_cap}</p>
       <p className="muted">{current.reason}</p>
       <details className="autopilot-pca"><summary>Exploratory hidden filters (PCA)</summary><p className="muted">{current.filters.disclosure}</p>
