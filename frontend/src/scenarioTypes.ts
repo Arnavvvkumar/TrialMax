@@ -37,7 +37,7 @@ export interface SimulationResult {
 export interface AnalyzeResponse { trial: TrialInfo; rules: Rule[]; simulation: SimulationResult; llm_used: boolean; warnings: string[] }
 export interface RecruitmentSite { name: string; city: string | null; region: string | null; country: string | null; historical_trial_count: number; matching_nct_ids: string[]; source_urls: string[]; explanation: string }
 export interface RecruitmentStrategy { rule_id: string; criterion: string; safety_sensitive: boolean; outreach: string }
-export interface RareReachResponse { trial: TrialInfo; query_terms: string[]; orpha_code: string | null; orpha_status: string; orpha_preferred_name: string | null; orpha_synonyms: string[]; hospitals: RecruitmentSite[]; nord_url: string; nord_candidate_url: string | null; strategies: RecruitmentStrategy[]; sources: { name: string; url: string; access: string }[]; warnings: string[] }
+export interface RareReachResponse { trial: TrialInfo; query_terms: string[]; is_rare_disease: boolean; rare_disease_message: string; orpha_code: string | null; orpha_status: string; orpha_preferred_name: string | null; orpha_synonyms: string[]; hospitals: RecruitmentSite[]; nord_url: string | null; nord_candidate_url: string | null; strategies: RecruitmentStrategy[]; sources: { name: string; url: string; access: string }[]; warnings: string[] }
 export interface RuleChange { rule_id: string; change: 'added' | 'removed' | 'disabled' | 'enabled' | 'tightened' | 'relaxed' | 'mixed' | 'ambiguous'; safety_critical: boolean }
 export interface CompareResult {
   cohort: CohortInfo; baseline: SimulationResult; proposed: SimulationResult
