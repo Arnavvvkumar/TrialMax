@@ -15,7 +15,7 @@ from fastapi.responses import JSONResponse, FileResponse
 from fastapi.staticfiles import StaticFiles
 
 from . import config, llm
-from .chalk_trials import ChalkTrialError, ChalkTrialNotFound, fetch_chalk_trial
+from .chalk_trials import ChalkTrialError, ChalkTrialNotFound, fetch_chalk_trial, fetch_snapshot_trial
 from .ctgov import TrialNotFound, fetch_trial
 from .cohorts import population_catalog, simulate_population, compare_population, trial_population_warnings
 from .models import (
@@ -141,10 +141,19 @@ def _get_trial(nct_id: str, source: str = "auto") -> TrialInfo:
                 raise HTTPException(status_code=404, detail=str(exc))
             log.info("Chalk has no trial %s; falling back to ClinicalTrials.gov.", nct_id)
         except ChalkTrialError as exc:
-            if source == "chalk":
-                log.warning("Chalk trial request failed: %s", exc)
-                raise HTTPException(status_code=502, detail="Chalk trial request failed; try again.")
-            log.info("Chalk trial source unavailable; falling back to ClinicalTrials.gov: %s", exc)
+            # No live Chalk SQL here (e.g. no CLI on the host): use the bundled export of the same dataset.
+            log.info("Live Chalk SQL unavailable (%s); using the Chalk dataset snapshot.", exc)
+            try:
+                return fetch_snapshot_trial(nct_id)
+            except ChalkTrialNotFound as missing:
+                if source == "chalk":
+                    raise HTTPException(status_code=404, detail=str(missing))
+                log.info("Chalk snapshot has no trial %s; falling back to ClinicalTrials.gov.", nct_id)
+            except ChalkTrialError as snapshot_exc:
+                if source == "chalk":
+                    log.warning("Chalk trial request failed: %s; %s", exc, snapshot_exc)
+                    raise HTTPException(status_code=502, detail="Chalk trial request failed; try again.")
+                log.info("Chalk trial source unavailable; falling back to ClinicalTrials.gov: %s", snapshot_exc)
     try:
         return fetch_trial(nct_id)
     except ValueError as exc:

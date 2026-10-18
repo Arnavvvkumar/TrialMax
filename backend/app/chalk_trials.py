@@ -2,12 +2,17 @@
 
 No Chalk feature definitions are required. The backend reads the already
 deployed ``chalk.datasets.\"nsclc-trials\"`` table through the Chalk CLI.
+Hosts without the CLI read a bundled export of the same table
+(``dataset/chalk/export_nsclc_trials.py``).
 """
 from __future__ import annotations
 
+import gzip
 import json
 import shutil
 import subprocess
+from functools import lru_cache
+from pathlib import Path
 from typing import Any, Callable
 
 from . import config
@@ -19,6 +24,7 @@ COLUMNS = (
     "nct_id, brief_title, criteria, gender, minimum_age, maximum_age, "
     "phase, overall_status, enrollment"
 )
+SNAPSHOT_PATH = Path(__file__).resolve().parents[1] / "data" / "chalk_nsclc_trials.json.gz"
 
 
 class ChalkTrialError(RuntimeError):
@@ -37,7 +43,7 @@ def _phases(value: Any) -> list[str]:
     return [str(value)]
 
 
-def trial_from_row(nct_id: str, row: dict[str, Any]) -> TrialInfo:
+def trial_from_row(nct_id: str, row: dict[str, Any], data_source: str = "chalk") -> TrialInfo:
     criteria = row.get("criteria")
     if not criteria:
         raise ChalkTrialNotFound(f"{nct_id} has no eligibility criteria in the Chalk trial dataset.")
@@ -52,8 +58,31 @@ def trial_from_row(nct_id: str, row: dict[str, Any]) -> TrialInfo:
         maximum_age=row.get("maximum_age"),
         sex=row.get("gender"),
         eligibility_text=str(criteria),
-        data_source="chalk",
+        data_source=data_source,
     )
+
+
+@lru_cache(maxsize=1)
+def _snapshot(path: Path = SNAPSHOT_PATH) -> dict[str, Any]:
+    try:
+        with gzip.open(path, "rt", encoding="utf-8") as handle:
+            return json.load(handle)
+    except (OSError, ValueError) as exc:
+        raise ChalkTrialError(f"Chalk dataset snapshot is unavailable: {exc}") from exc
+
+
+def fetch_snapshot_trial(raw_id: str, path: Path = SNAPSHOT_PATH) -> TrialInfo:
+    """Read one trial from the bundled export of the Chalk dataset."""
+    nct_id = normalize_nct_id(raw_id)
+    row = _snapshot(path).get("trials", {}).get(nct_id)
+    if not row:
+        raise ChalkTrialNotFound(f"{nct_id} was not found in the Chalk trial dataset snapshot.")
+    return trial_from_row(nct_id, row, data_source="chalk-snapshot")
+
+
+def snapshot_info(path: Path = SNAPSHOT_PATH) -> dict[str, Any]:
+    data = _snapshot(path)
+    return {key: data.get(key) for key in ("source", "environment", "exported_at", "row_count")}
 
 
 def fetch_chalk_trial(

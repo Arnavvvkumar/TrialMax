@@ -102,7 +102,7 @@ class TrialInfo(BaseModel):
     maximum_age: Optional[str] = None
     sex: Optional[str] = None
     eligibility_text: str = ""
-    data_source: Literal["ctgov", "chalk", "manual"] = "ctgov"
+    data_source: Literal["ctgov", "chalk", "chalk-snapshot", "manual"] = "ctgov"
 
 
 class RuleImpact(BaseModel):

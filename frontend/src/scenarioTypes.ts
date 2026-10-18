@@ -17,6 +17,7 @@ export interface TrialInfo {
   nct_id: string | null; title: string | null; phases: string[]; conditions: string[]
   sponsor: string | null; status: string | null; enrollment: number | null
   minimum_age: string | null; maximum_age: string | null; sex: string | null; eligibility_text: string
+  data_source?: 'ctgov' | 'chalk' | 'chalk-snapshot' | 'manual'
 }
 export interface RuleImpact { rule_id: string; simulated: boolean; fail_n: number; fail_pct: number; unique_fail_n: number; unique_fail_pct: number; pass_n: number; unknown_n: number }
 export interface AttributionOverlap { rule_id: string; patient_n: number }
