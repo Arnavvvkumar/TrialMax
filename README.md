@@ -56,8 +56,8 @@ flowchart TD
     G --> I[Funnel, overlap and rule impact]
     I --> J[Draft threshold changes]
     J --> K[Compare same cohort]
-    K --> L[Researcher review]
-
+    K --> L[Researcher review
+```
 
 ## 🧪 Eligibility Results
 
