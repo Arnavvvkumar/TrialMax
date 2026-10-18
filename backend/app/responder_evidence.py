@@ -7,6 +7,7 @@ from .responder_models import ResponderResponse, TrialEvidence
 from .responder_truth import RCT_DIR
 from . import config
 from .responder_agent import SYSTEM
+from .responder_scoring import SCORING_VERSION
 from .responder_claims import POLICY_VERSION, UNDERPOWERED_NOTE, evidence_label
 
 
@@ -30,6 +31,8 @@ def evaluation_summary():
         return {'status':'stale','runs':[],'message':'Evaluation records use a different model or prompt. Rerun evaluation.'}
     if data.get('policy_version') != POLICY_VERSION:
         return {'status':'stale','runs':[],'message':'Evaluation records use a different evidence/claim policy. Rerun evaluation.'}
+    if data.get('scoring_version') != SCORING_VERSION:
+        return {'status':'stale','runs':[],'message':'Evaluation records use older scoring rules. Rescore the saved outputs.'}
     # The API needs summaries, not the full evaluation dataset or raw model outputs.
     return {key:value for key,value in data.items() if key != 'cases'}
 

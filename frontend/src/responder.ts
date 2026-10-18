@@ -7,8 +7,8 @@ export function subgroupEvidenceLabel(row: Pick<ResponderSubgroup,'underpowered'
 export const responderMetrics = [
   ['correct_flag','Correct flag'], ['no_overclaim','No overclaim'], ['abstains_when_null','Null abstention'],
   ['planted_recall','Planted recall'], ['number_fidelity','Number fidelity'], ['json_valid','Raw JSON valid'],
-  ['legacy_claim_consistency','Prior prose verified'], ['raw_claim_consistency','New AI prose verified'],
-  ['claim_consistency','Displayed claims verified'],
+  ['raw_claim_consistency','New AI template match'],
+  ['claim_consistency','Displayed template match'],
 ] as const
 
 export function effectLabel(effect: ResponderEffect) {
@@ -48,7 +48,7 @@ export function subgroupStatus(row: Pick<ResponderSubgroup, 'truth_label' | 'und
   if (row.underpowered) return { text: 'Too few events', tone: 'amber' }
   if (row.truth_label === 'weaker_benefit') return { text: 'Benefits less', tone: 'red' }
   if (row.truth_label === 'stronger_benefit') return { text: 'Benefits more', tone: 'sage' }
-  return { text: 'No difference', tone: 'gray' }
+  return { text: 'No clear difference', tone: 'gray' }
 }
 
 /** The answer the AI should give: the reliable weaker-benefit group with the smallest q, else none. */
@@ -61,15 +61,15 @@ export function expectedFlag(subgroups: ResponderSubgroup[]): string | null {
 export const shortName = (text: string) => text.replace(/\s*\([^)]*\)/g, '').trim()
 const outcome = (endpoint: string) => endpoint.match(/\(([^)]+)\)/)?.[1] ?? 'the outcome'
 
-/** Overall effect as a signed % change in risk; a direction is claimed only when the whole CI agrees. */
+/** Overall effect as a signed % change in hazard; a direction is claimed only when the whole CI agrees. */
 export function overallStat(evidence: Pick<ResponderResponse['evidence'], 'endpoint' | 'overall'>) {
   const { hr, ci_low, ci_high } = evidence.overall
-  const caption = `risk of ${outcome(evidence.endpoint)}`
+  const caption = `hazard of ${outcome(evidence.endpoint)}`
   if (hr === null || ci_low === null || ci_high === null) return { value: 'n/a', caption, verdict: 'Not estimable', tone: 'gray' as Tone }
   const change = Math.round(100 * (hr - 1))
   const value = `${change > 0 ? '+' : change < 0 ? '−' : ''}${Math.abs(change)}%`
-  if (ci_high < 1) return { value, caption, verdict: 'Helps', tone: 'sage' as Tone }
-  if (ci_low > 1) return { value, caption, verdict: 'Harms', tone: 'red' as Tone }
+  if (ci_high < 1) return { value, caption, verdict: 'Lower hazard', tone: 'sage' as Tone }
+  if (ci_low > 1) return { value, caption, verdict: 'Higher hazard', tone: 'red' as Tone }
   return { value, caption, verdict: 'No clear effect', tone: 'gray' as Tone }
 }
 
@@ -108,4 +108,9 @@ export function evaluationHeadline(evaluations: ResponderResponse['evaluations']
     claimsVerified: pooledMetric(runs, 'claim_consistency'),
     noPlantedTargets: runs.some(run => run.variant === 'planted') && runs.every(run => run.variant !== 'planted' || run.detectable_planted_n === 0),
   }
+}
+
+
+export function priorProseAudit(audit: NonNullable<ResponderResponse['evaluations']['claim_audit']>['before']) {
+  return `${audit.contradiction_n} detected contradiction(s) in ${audit.n} prior responses. ${audit.n - audit.unverified_n}/${audit.n} matched approved templates; ${audit.unverified_n} did not. Failure to match a template does not by itself establish a contradiction.`
 }

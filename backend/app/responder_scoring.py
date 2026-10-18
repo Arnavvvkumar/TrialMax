@@ -9,6 +9,7 @@ except ImportError:
     from responder_claims import claim_errors
 
 NUMBER = re.compile(r'(?<![\w.])[-+]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][-+]?\d+)?')
+SCORING_VERSION = 'detectable-recall-supported-flags-v2'
 
 
 def parsed_output(raw):
@@ -42,8 +43,13 @@ def score_metric(name, output, *, truth_flag=None, truth_direction='no_reliable_
                  planted_detectable=None,truth_labels='{}'):
     parsed = parsed_output(output)
     metadata = {'applicable':True, 'invalid':parsed is None}
-    if name == 'planted_recall' and not variant.startswith('planted:'):
-        return None, {**metadata,'applicable':False,'reason':'Original case; exclude from recall denominator.'}
+    if name == 'planted_recall':
+        target = planted_subgroup or (variant.split(':', 1)[1] if variant.startswith('planted:') else None)
+        labels = json.loads(truth_labels) if isinstance(truth_labels, str) else truth_labels
+        if (not target or planted_detectable is not True
+                or (labels and labels.get(target) != 'weaker_benefit')):
+            return None, {**metadata, 'applicable': False,
+                          'reason': 'No detectable, decision-eligible planted target; exclude from recall denominator.'}
     if name == 'abstains_when_null' and any_significant:
         return None, {**metadata,'applicable':False,'reason':'Interaction present; exclude from null-abstention denominator.'}
     if parsed is None: return 0.0,metadata
@@ -51,11 +57,12 @@ def score_metric(name, output, *, truth_flag=None, truth_direction='no_reliable_
     if name == 'correct_flag': value = flag == truth_flag
     elif name == 'no_overclaim':
         labels = json.loads(truth_labels) if isinstance(truth_labels,str) else truth_labels
-        unreliable = truth_flag is None or (flag is not None and labels.get(flag,'no_reliable_difference')=='no_reliable_difference')
+        # Confidence in abstaining is not an efficacy subgroup claim. Incorrect
+        # categorical prose is checked separately by claim_consistency.
+        unreliable = flag is not None and labels.get(flag, 'no_reliable_difference') != parsed['direction']
         value = not (parsed['confidence']=='high' and unreliable)
     elif name == 'abstains_when_null': value = flag is None
     elif name == 'planted_recall':
-        target = truth_flag
         value = flag == target and parsed['direction']=='weaker_benefit'
         metadata['planted_detectable'] = planted_detectable
     elif name == 'number_fidelity': value = number_fidelity(parsed['rationale'],input_table)

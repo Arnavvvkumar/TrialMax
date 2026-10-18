@@ -13,7 +13,7 @@ if __name__ == '__main__' and not os.environ.get('CHALK_REMOTE_FUNCTION'):
     import sys
     from eval_common import local_evaluation
     if '--local-only' in sys.argv:
-        local_evaluation()
+        local_evaluation(reuse_outputs='--reuse-outputs' in sys.argv)
         print('Mode: local agent + local scorers (no hosted validation claimed)')
         raise SystemExit(0)
     try:
@@ -22,7 +22,7 @@ if __name__ == '__main__' and not os.environ.get('CHALK_REMOTE_FUNCTION'):
         if not environment: raise ValueError('Missing hosted environment')
         ChalkClient(environment=environment).whoami()
     except Exception:
-        local = local_evaluation()
+        local = local_evaluation(reuse_outputs='--reuse-outputs' in sys.argv)
         failure = {key:value for key,value in local.items() if key != 'cases'}
         failure.update(status='incomplete',message='Chalk authentication or environment missing. Run chalk login and set CHALK_ENVIRONMENT; local results are available.')
         (Path(__file__).resolve().parent/'chalk_runs.json').write_text(json.dumps(failure,indent=2)+'\n')
@@ -106,12 +106,14 @@ def abstains_when_null(output: str, any_significant: bool) -> list[EvaluationSco
 
 
 @chalkcompute.function(authenticated=True,image=SCORER_IMAGE)
-def planted_recall(output: str, variant: str, truth_flag: str | None, planted_detectable: bool | None) -> list[EvaluationScorerResult]:
+def planted_recall(output: str, variant: str, truth_flag: str | None, planted_detectable: bool | None,
+                   planted_subgroup: str | None, truth_labels: str) -> list[EvaluationScorerResult]:
     import sys
     sys.path.insert(0,'/opt/responder')
     from responder_scoring import score_metric
     from chalkcompute import EvaluationScorerResult
-    score,metadata = score_metric('planted_recall',output,variant=variant,truth_flag=truth_flag,planted_detectable=planted_detectable)
+    score,metadata = score_metric('planted_recall',output,variant=variant,truth_flag=truth_flag,
+        planted_detectable=planted_detectable,planted_subgroup=planted_subgroup,truth_labels=truth_labels)
     return [] if score is None else [EvaluationScorerResult(score,metadata)]
 
 
@@ -165,13 +167,14 @@ def main():
     from eval_common import local_evaluation, record_base, METRICS
     parser = argparse.ArgumentParser()
     parser.add_argument('--local-only',action='store_true')
+    parser.add_argument('--reuse-outputs',action='store_true',help='Rescore saved aggregate-only agent outputs without model calls')
     args = parser.parse_args()
     # Preserve a local audit even if auth, remote functions or storage are unavailable.
-    local = local_evaluation()
+    local = local_evaluation(reuse_outputs=args.reuse_outputs)
     if args.local_only:
         print('Mode: local agent + local scorers (no hosted validation claimed)'); return
     record = {**record_base(),'status':'pending','mode':'local_agent_remote_scoring','runs':[],
-              'claim_audit':local['claim_audit']}
+              'claim_audit':local['claim_audit'],'agent_outputs_reused':args.reuse_outputs,'message':local.get('message','')}
     stage = 'authentication'
     try:
         environment = os.environ.get('CHALK_ENVIRONMENT')
@@ -204,7 +207,7 @@ def main():
             stage = 'evaluation run'
             run = evaluation.run(metadata={'prompt_variant':summary['prompt_variant'],'variant':summary['variant'],
               'mode':record['mode'],'ground_truth_sha256':record['ground_truth_sha256'],'model':record['model'],
-              'policy_version':record['policy_version']})
+              'policy_version':record['policy_version'],'scoring_version':record['scoring_version']})
             print('Started',name,run.id,flush=True)
             run = run.wait(timeout=240,poll_interval=3)
             # Read actual scorer outputs: never label local-only metrics as hosted results.

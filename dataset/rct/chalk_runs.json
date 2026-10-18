@@ -3,10 +3,11 @@
   "model": "openai/gpt-6.1-sol",
   "prompt_sha256": "1c3d2e9ff1995c36cef5f6acd7c701c6e501e5b0ed97fd3d040795ab420c6b8d",
   "policy_version": "bh-010-powered-claims-v1",
-  "recorded_at": "2026-10-18T04:42:38.269528+00:00",
+  "scoring_version": "detectable-recall-supported-flags-v2",
+  "recorded_at": "2026-10-18T05:53:33.363448+00:00",
   "limitations": [
     "Exploratory statistical reference labels, not clinical truth; not protocol recommendations.",
-    "Undetectable planted targets are retained. Strict planted recall alone cannot establish statistical sensitivity.",
+    "Planted recall includes only detectable, decision-eligible planted targets; other cases are excluded from its denominator.",
     "No-significant-interaction does not establish equal treatment effects.",
     "Partly non-randomized treatment assignment: weaker evidence (GBSG).",
     "Underpowered groups retain statistical significance but their decision label is no reliable difference.",
@@ -42,8 +43,8 @@
         "json_valid": 3
       },
       "detectable_planted_n": 0,
-      "evaluation_id": "cmvdcbcn00ecw013ewjqb1tao",
-      "run_id": "739fbd01-161d-43cf-94c2-ace5abc3c9b0",
+      "evaluation_id": "cmvdetoqq0ful01y5fafy1ar9",
+      "run_id": "4ced5f4c-b1f0-4fcf-bcf5-e598eda7a9ca",
       "status": "EvaluationRunStatus.SUCCEEDED"
     },
     {
@@ -54,7 +55,7 @@
         "correct_flag": 1.0,
         "no_overclaim": 1.0,
         "abstains_when_null": 1.0,
-        "planted_recall": 0.0,
+        "planted_recall": null,
         "number_fidelity": 1.0,
         "claim_consistency": 1.0,
         "raw_claim_consistency": 1.0,
@@ -65,7 +66,7 @@
         "correct_flag": 9,
         "no_overclaim": 9,
         "abstains_when_null": 6,
-        "planted_recall": 9,
+        "planted_recall": 0,
         "number_fidelity": 9,
         "claim_consistency": 9,
         "raw_claim_consistency": 9,
@@ -73,8 +74,8 @@
         "json_valid": 9
       },
       "detectable_planted_n": 0,
-      "evaluation_id": "cmvdcbqtz0edy014wsuh1r2ww",
-      "run_id": "debb5ec8-dc7a-4dbf-9bef-dd425669a6ea",
+      "evaluation_id": "cmvdeudvr0fvw01y5vgy5l1is",
+      "run_id": "3b775dfb-b933-4639-854b-ae525504a0fd",
       "status": "EvaluationRunStatus.SUCCEEDED"
     },
     {
@@ -83,7 +84,7 @@
       "n": 3,
       "scores": {
         "correct_flag": 1.0,
-        "no_overclaim": 0.0,
+        "no_overclaim": 1.0,
         "abstains_when_null": 1.0,
         "planted_recall": null,
         "number_fidelity": 1.0,
@@ -104,8 +105,8 @@
         "json_valid": 3
       },
       "detectable_planted_n": 0,
-      "evaluation_id": "cmvdcc5bi0ege01y5ut6t441r",
-      "run_id": "97ccdbe7-776d-4120-a191-c3deccca7dfb",
+      "evaluation_id": "cmvdeuv220fvl014wp9knmebi",
+      "run_id": "4845d0cc-4787-4362-aeb0-255e1f3cdaf6",
       "status": "EvaluationRunStatus.SUCCEEDED"
     },
     {
@@ -114,9 +115,9 @@
       "n": 9,
       "scores": {
         "correct_flag": 1.0,
-        "no_overclaim": 0.0,
+        "no_overclaim": 1.0,
         "abstains_when_null": 1.0,
-        "planted_recall": 0.0,
+        "planted_recall": null,
         "number_fidelity": 1.0,
         "claim_consistency": 1.0,
         "raw_claim_consistency": 1.0,
@@ -127,7 +128,7 @@
         "correct_flag": 9,
         "no_overclaim": 9,
         "abstains_when_null": 6,
-        "planted_recall": 9,
+        "planted_recall": 0,
         "number_fidelity": 9,
         "claim_consistency": 9,
         "raw_claim_consistency": 9,
@@ -135,8 +136,8 @@
         "json_valid": 9
       },
       "detectable_planted_n": 0,
-      "evaluation_id": "cmvdccm470eek014w59nl1ncd",
-      "run_id": "ab0c85ef-1425-40a0-80e6-976340451e37",
+      "evaluation_id": "cmvdev9rb0fln013ea9s9umi2",
+      "run_id": "0c36c7b0-45fb-4ad2-996e-afef22012fe6",
       "status": "EvaluationRunStatus.SUCCEEDED"
     }
   ],
@@ -171,6 +172,8 @@
     },
     "template_fallback_n": 0
   },
+  "agent_outputs_reused": true,
+  "message": "Saved agent responses rescored with corrected metric definitions; no new model inference was run.",
   "environment": "hmlsd28bca6e",
   "gateway_probe": {
     "gateway_callable": false,

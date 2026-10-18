@@ -17,3 +17,10 @@ The public Orphadata name lookup resolves a trial condition to an ORPHAcode, pre
 - Orphadata provides terminology matches when available; Orphanet centres/networks and NORD are source-linked for public manual research.
 - Every strategy keeps the criterion and offers only an outreach recommendation; there is no criterion-relaxation option.
 - The dashboard renders empty and source-unavailable states without fabricated sites or organisations.
+
+
+Site ranking groups punctuation/case variants and a small explicit, city/state-scoped
+alias list for MD Anderson (Houston, Texas) and UT Southwestern (Dallas, Texas).
+Counts are the union of distinct NCT IDs, never the sum of duplicate listings.
+Aliases and source study links remain in each site's explanation/evidence. Unlisted
+name variants and different cities remain separate rather than being fuzzy-merged.

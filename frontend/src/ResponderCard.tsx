@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { AlertTriangle, CheckCircle2, CircleHelp, MinusCircle, XCircle } from 'lucide-react'
 import { getResponderEvidence } from './simulationService'
-import { agentVerdict, effectLabel, evaluationHeadline, evidenceSuggestion, hostedResponderValidation, overallStat, PLOT_TICKS, plotPosition, responderMetrics, shortName, subgroupStatus } from './responder'
+import { agentVerdict, effectLabel, evaluationHeadline, evidenceSuggestion, hostedResponderValidation, overallStat, PLOT_TICKS, plotPosition, priorProseAudit, responderMetrics, shortName, subgroupStatus } from './responder'
 import type { Tone } from './responder'
 import type { ResponderResponse, ResponderSubgroup } from './responderTypes'
 import './responder.css'
@@ -59,16 +59,17 @@ function ReportCard({ evaluations }: { evaluations: ResponderResponse['evaluatio
   if (!evaluations.runs.length) return null
   return <section className="card">
     <div className="card-top"><h3>AI report card</h3><Chip tone={hosted ? 'sage' : 'amber'}>{hosted ? 'Graded in Chalk Evaluations' : 'Local scores only'}</Chip></div>
-    <Meter label="No false findings" tally={head.abstained} />
-    <Meter label="Quoted numbers real" tally={head.realNumbers} />
-    <Meter label="Valid answer format" tally={head.validJson} />
-    <Meter label="Explanations verified" tally={head.claimsVerified} />
+    <Meter label="Abstains on null cases" tally={head.abstained} />
+    <Meter label="Numbers match input" tally={head.realNumbers} />
+    <Meter label="Raw JSON parses" tally={head.validJson} />
+    <Meter label="Approved explanation templates" tally={head.claimsVerified} />
     {head.noPlantedTargets && <div className="responder-meter is-untested"><span>Finds a hidden effect</span><div className="meter-track" /><b>Not tested yet</b></div>}
+    <p className="muted">{evaluations.message}</p>
     <details><summary>Full evaluation table</summary>
-      <p className="muted">{head.cases} historical cases × 2 prompt styles = {head.answers} answers. “No overclaim” also penalizes a confident “nothing here”, so it reads low even when the answer is right.</p>
+      <p className="muted">{head.cases} historical cases × 2 prompt styles = {head.answers} answers. High-confidence abstention is not a subgroup overclaim. Planted recall counts only detectable, decision-eligible targets; N/A means none were available. Template match measures approved wording, not factual accuracy.</p>
       <div className="table-scroll"><table className="responder-scores"><thead><tr><th>Prompt / cases</th>{responderMetrics.map(([metric, label]) => <th key={metric}>{label}</th>)}</tr></thead><tbody>{evaluations.runs.map(run => <tr key={`${run.prompt_variant}-${run.variant}`}>
         <td>{run.prompt_variant} / {run.variant} (n={run.n}){run.run_id && <small>Run: {run.run_id}</small>}</td>{responderMetrics.map(([metric]) => <td key={metric}>{run.scores[metric] == null ? 'N/A' : `${(100 * run.scores[metric]!).toFixed(1)}%`}<small>n={run.denominators[metric] ?? 0}</small></td>)}</tr>)}</tbody></table></div>
-      {evaluations.claim_audit && <p className="muted">Explanation consistency audit: {evaluations.claim_audit.before.contradiction_n} contradictions in {evaluations.claim_audit.before.n} earlier answers; {evaluations.claim_audit.guarded_after.contradiction_n} in {evaluations.claim_audit.guarded_after.n} displayed explanations ({evaluations.claim_audit.template_fallback_n} replaced by a verified template).</p>}
+      {evaluations.claim_audit && <p className="muted">Explanation consistency audit: {priorProseAudit(evaluations.claim_audit.before)} New displayed explanations: {evaluations.claim_audit.guarded_after.contradiction_n} in {evaluations.claim_audit.guarded_after.n} displayed explanations ({evaluations.claim_audit.template_fallback_n} replaced by a verified template).</p>}
     </details>
   </section>
 }

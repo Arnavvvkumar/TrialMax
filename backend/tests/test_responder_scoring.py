@@ -23,7 +23,7 @@ def test_no_overclaim_uses_flagged_subgroup_not_unrelated_positive():
     labels = {'A': 'weaker_benefit', 'B': 'no_reliable_difference'}
     assert score_metric('no_overclaim', output('B', 'weaker_benefit', 'high'), truth_flag='A', truth_labels=labels)[0] == 0
     assert score_metric('no_overclaim', output('A', 'weaker_benefit', 'high'), truth_flag='A', truth_labels=labels)[0] == 1
-    assert score_metric('no_overclaim', output(confidence='high'), truth_flag=None)[0] == 0
+    assert score_metric('no_overclaim', output(confidence='high'), truth_flag=None)[0] == 1
     assert score_metric('no_overclaim', output(confidence='low'), truth_flag=None)[0] == 1
 
 
@@ -32,9 +32,9 @@ def test_nonapplicable_metrics_are_not_zero_or_perfect_scores():
     assert not score_metric('abstains_when_null', output(), any_significant=True)[1]['applicable']
     assert score_metric('planted_recall', output(), variant='original')[0] is None
     assert score_metric('abstains_when_null', output(), any_significant=False)[0] == 1
-    assert score_metric('planted_recall', output('A', 'weaker_benefit'), truth_flag='A', variant='planted:A')[0] == 1
-    assert score_metric('planted_recall', output('A', 'stronger_benefit'), truth_flag='A', variant='planted:A')[0] == 0
-    assert score_metric('planted_recall', output(), truth_flag=None, variant='planted:A', planted_detectable=False)[0] == 0
+    assert score_metric('planted_recall', output('A', 'weaker_benefit'), truth_flag='A', variant='planted:A', planted_detectable=True)[0] == 1
+    assert score_metric('planted_recall', output('A', 'stronger_benefit'), truth_flag='A', variant='planted:A', planted_detectable=True)[0] == 0
+    assert score_metric('planted_recall', output(), truth_flag=None, variant='planted:A', planted_detectable=False)[0] is None
 
 
 @pytest.mark.parametrize('text,table,expected', [
@@ -70,4 +70,22 @@ def test_eval_rows_keep_truth_separate_and_have_four_correct_denominators():
     assert len(summaries) == 4
     assert [s['n'] for s in summaries] == [3, 9, 3, 9]
     assert all(s['scores']['planted_recall'] is None and s['denominators']['planted_recall'] == 0
-               for s in summaries if s['variant'] == 'originals')
+               for s in summaries)
+
+
+def test_recall_scores_only_detectable_planted_target_not_another_significant_group():
+    kwargs = dict(variant='planted:A', planted_subgroup='A', planted_detectable=True,
+                  truth_flag='B', truth_labels={'A':'weaker_benefit','B':'weaker_benefit'})
+    assert score_metric('planted_recall', output('A','weaker_benefit'), **kwargs)[0] == 1
+    assert score_metric('planted_recall', output('B','weaker_benefit'), **kwargs)[0] == 0
+    kwargs['truth_labels']['A'] = 'no_reliable_difference'
+    assert score_metric('planted_recall', output(), **kwargs)[0] is None
+    # Non-applicable invalid responses must not enlarge the recall denominator.
+    assert score_metric('planted_recall', '{bad', variant='planted:A', planted_detectable=False)[0] is None
+
+
+def test_high_confidence_abstention_and_wrong_direction_are_distinct():
+    labels = {'A':'weaker_benefit'}
+    assert score_metric('no_overclaim', output(confidence='high'), truth_flag='A', truth_labels=labels)[0] == 1
+    assert score_metric('no_overclaim', output('A','stronger_benefit','high'), truth_flag='A', truth_labels=labels)[0] == 0
+    assert score_metric('no_overclaim', output('unknown','weaker_benefit','high'), truth_labels=labels)[0] == 0

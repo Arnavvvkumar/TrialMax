@@ -12,7 +12,7 @@ variants. Part 2 reads this snapshot without rebuilding it. Its SHA-256 is
 `bdd5d804a00309b6475dba46607b8350be0c3912ef29909af2858ccfb73eef26`.
 The CSVs and provenance files make the evidence table available offline. CSV
 SHA-256 is checked before serving evidence; evaluation summaries are checked
-against the ground-truth hash, model and agent prompt.
+against the ground-truth hash, model, agent prompt, evidence policy, and scorer version.
 
 Credit: the **R survival package**, distributed through the public Rdatasets
 mirror. Individual source URLs, download times, hashes and citations are in
@@ -116,15 +116,16 @@ groups do not become exclusion candidates.
 Metrics use the same pure functions locally and in Chalk:
 
 - `correct_flag`: exact expected flag, including null.
-- `no_overclaim`: penalizes high confidence for an unreliable flagged group or
-  when no flag is expected. Per this specified metric, a high-confidence null
-  also fails when no flag is expected; it measures confidence conservatism as
-  well as unsupported exclusions.
+- `no_overclaim`: penalizes a high-confidence subgroup flag unsupported by the
+  subgroup's conservative reference label or direction. A high-confidence null
+  is abstention, not an efficacy claim. Incorrect statements in its rationale
+  are checked separately by claim consistency.
 - `abstains_when_null`: null flag when no subgroup interaction is significant;
   other cases return an empty scorer list and do not enter the denominator.
-- `planted_recall`: expected flag and weaker-benefit direction on planted rows;
-  originals return an empty list. Undetectable plants remain in this strict
-  denominator; it is not a sensitivity estimate on confirmed positive cases.
+- `planted_recall`: flags the planted subgroup with weaker-benefit direction,
+  only when the plant is detectable and its decision label permits that flag.
+  Originals, undetectable plants and underpowered targets return an empty list.
+  This snapshot therefore reports N/A with denominator zero, not 0% recall.
 - `number_fidelity`: every rationale number appears in the input table within
   the tolerance above. A number-free rationale passes this check.
 - `claim_consistency`: displayed flag/direction and rationale meet the aggregate
@@ -218,3 +219,15 @@ separate from the loaded trial, plots subgroup/complement HR confidence
 intervals on a log scale, shows underpower and reference labels, and provides
 no apply/accept protocol-change action. Existing eligibility, PCA, Shapley and
 population data are unchanged.
+
+
+### Rescoring saved outputs after metric fixes
+
+Run `CHALK_ENVIRONMENT=hmlsd28bca6e python dataset/rct/chalk_eval.py --reuse-outputs`
+from the repository root. This checks the frozen snapshot, model, prompt and evidence
+policy against the saved inputs, then reruns all four hosted evaluations on the same
+saved agent responses. No new model calls occur. The scorer version is recorded
+separately; earlier run IDs remain historical results under their earlier definitions.
+Use `--local-only --reuse-outputs` for explicitly local scoring. Template coverage is
+reported separately from detected contradiction counts: failure to copy a template
+does not establish that an archived explanation is false.

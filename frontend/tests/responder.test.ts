@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { agentVerdict, effectLabel, evaluationHeadline, evidenceSuggestion, expectedFlag, forestInterval, hostedResponderValidation, overallStat, plotPosition, pooledMetric, responderMetrics, subgroupEvidenceLabel, subgroupStatus } from '../src/responder.ts'
+import { agentVerdict, effectLabel, evaluationHeadline, evidenceSuggestion, expectedFlag, forestInterval, hostedResponderValidation, overallStat, plotPosition, pooledMetric, priorProseAudit, responderMetrics, subgroupEvidenceLabel, subgroupStatus } from '../src/responder.ts'
 import type { ResponderEffect, ResponderResponse, ResponderRun, ResponderSubgroup } from '../src/responderTypes.ts'
 
 const effect = (hr: number | null, low: number | null, high: number | null): ResponderEffect => ({hr,ci_low:low,ci_high:high,p:null,status:'ok'})
@@ -13,7 +13,7 @@ test('subgroup status names the reference label in plain language', () => {
   assert.deepEqual(subgroupStatus(group('A','stronger_benefit',.05,true)), {text:'Too few events',tone:'amber'})
   assert.deepEqual(subgroupStatus(group('A','weaker_benefit',.05,true)), {text:'Too few events',tone:'amber'})
   assert.deepEqual(subgroupStatus(group('A','no_reliable_difference',.4,true)), {text:'Too few events',tone:'amber'})
-  assert.deepEqual(subgroupStatus(group('A','no_reliable_difference',.4)), {text:'No difference',tone:'gray'})
+  assert.deepEqual(subgroupStatus(group('A','no_reliable_difference',.4)), {text:'No clear difference',tone:'gray'})
   assert.equal(subgroupStatus({...group('A','weaker_benefit'), hr_subgroup:{...effect(null,null,null),status:'unestimable'}}).text, 'Not estimable')
 })
 
@@ -25,10 +25,10 @@ test('expected flag is the weaker-benefit group with the smallest q, never a str
 
 test('overall stat claims a direction only when the whole CI is on one side of HR 1', () => {
   const endpoint = 'Overall survival (death)'
-  assert.deepEqual(overallStat({endpoint, overall:effect(.689,.546,.869)}), {value:'−31%', caption:'risk of death', verdict:'Helps', tone:'sage'})
-  assert.deepEqual(overallStat({endpoint, overall:effect(1.02,.71,1.45)}), {value:'+2%', caption:'risk of death', verdict:'No clear effect', tone:'gray'})
-  assert.equal(overallStat({endpoint, overall:effect(1.5,1.1,2)}).verdict, 'Harms')
-  assert.equal(overallStat({endpoint:'Survival', overall:effect(null,null,null)}).caption, 'risk of the outcome')
+  assert.deepEqual(overallStat({endpoint, overall:effect(.689,.546,.869)}), {value:'−31%', caption:'hazard of death', verdict:'Lower hazard', tone:'sage'})
+  assert.deepEqual(overallStat({endpoint, overall:effect(1.02,.71,1.45)}), {value:'+2%', caption:'hazard of death', verdict:'No clear effect', tone:'gray'})
+  assert.equal(overallStat({endpoint, overall:effect(1.5,1.1,2)}).verdict, 'Higher hazard')
+  assert.equal(overallStat({endpoint:'Survival', overall:effect(null,null,null)}).caption, 'hazard of the outcome')
 })
 
 test('agent verdict compares the AI with the reference answer', () => {
@@ -100,5 +100,13 @@ test('underpowered subgroups always have the conservative decision label', () =>
 test('claim metrics distinguish prior prose, raw AI output and displayed explanations', () => {
   assert.ok(responderMetrics.some(([metric])=>metric==='claim_consistency'))
   assert.ok(responderMetrics.some(([metric])=>metric==='raw_claim_consistency'))
-  assert.ok(responderMetrics.some(([metric])=>metric==='legacy_claim_consistency'))
+  assert.ok(!responderMetrics.some(([metric])=>String(metric)==='legacy_claim_consistency'))
+})
+
+
+test('audit separates strict template coverage from detected contradictions', () => {
+  const text=priorProseAudit({n:24,contradiction_n:1,unverified_n:24})
+  assert.match(text,/1 detected contradiction/)
+  assert.match(text,/0\/24 matched approved templates/)
+  assert.match(text,/does not by itself establish a contradiction/)
 })

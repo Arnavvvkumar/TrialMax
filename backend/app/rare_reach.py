@@ -53,6 +53,30 @@ def _nord_candidate_url(term: str | None) -> str | None:
 def _is_us_location(location: dict) -> bool:
     return str(location.get("country") or "").strip().casefold() in US_COUNTRY_NAMES
 
+
+# Explicit aliases, scoped to a city and state: no fuzzy matching of unrelated sites.
+SITE_ALIASES = {
+    ("houston", "tx"): ("University of Texas MD Anderson Cancer Center", {
+        "mdanderson", "mdandersoncancercenter", "universityoftexasmdanderson",
+        "universityoftexasmdandersoncancercenter", "theuniversityoftexasmdandersoncancercenter",
+    }),
+    ("dallas", "tx"): ("University of Texas Southwestern Medical Center", {
+        "utsouthwestern", "utsouthwesternmedicalcenter", "utsouthwesternmedicalcenteratdallas",
+        "universityoftexassouthwestern", "universityoftexassouthwesternmedicalcenter",
+        "universityoftexassouthwesternmedicalcenteratdallas",
+    }),
+}
+
+
+def site_identity(name: str, city: str, region: str):
+    normalized_city = _normalise_term(city)
+    normalized_region = {"texas": "tx", "massachusetts": "ma"}.get(_normalise_term(region), _normalise_term(region))
+    normalized_name = _normalise_term(name)
+    alias = SITE_ALIASES.get((normalized_city, normalized_region))
+    display = alias[0] if alias and normalized_name in alias[1] else name
+    return (_normalise_term(display), normalized_city, normalized_region), display
+
+
 def find_hospitals(trial: TrialInfo, client: httpx.Client | None = None) -> list[RecruitmentSite]:
     conditions = [c for c in trial.conditions if c]
     if not conditions: return []
@@ -63,18 +87,35 @@ def find_hospitals(trial: TrialInfo, client: httpx.Client | None = None) -> list
     except httpx.HTTPError as exc: raise RareReachError(f"ClinicalTrials.gov site search failed: {exc}") from exc
     finally:
         if owned: client.close()
-    sites: dict[tuple[str,str,str,str], set[str]] = defaultdict(set)
+    sites: dict[tuple[str,str,str], set[str]] = defaultdict(set)
+    names: dict[tuple[str,str,str], set[str]] = defaultdict(set)
+    display_sites = {}
+    coordinates: dict[tuple[str,str,str], set[tuple[float,float]]] = defaultdict(set)
     for study in studies if isinstance(studies, list) else []:
         protocol = study.get("protocolSection", {}); nct = protocol.get("identificationModule", {}).get("nctId")
         for loc in protocol.get("contactsLocationsModule", {}).get("locations", []) or []:
             if not _is_us_location(loc):
                 continue
-            key = tuple(str(loc.get(k) or "").strip() for k in ("facility", "city", "state", "country"))
-            if nct and key[0]: sites[key].add(str(nct))
+            name, city, region = (str(loc.get(k) or "").strip() for k in ("facility", "city", "state"))
+            if nct and name:
+                key, display = site_identity(name, city, region)
+                sites[key].add(str(nct))
+                names[key].add(name)
+                # Stable display independent of the order returned by the API.
+                candidate = (display, city, region)
+                display_sites[key] = min(display_sites.get(key, candidate), candidate)
+                geo = loc.get("geoPoint") or {}
+                latitude, longitude = geo.get("lat"), geo.get("lon")
+                if isinstance(latitude, (int, float)) and isinstance(longitude, (int, float)):
+                    coordinates[key].add((float(latitude), float(longitude)))
     out = []
-    for (name, city, region, country), ids in sites.items():
+    for key, ids in sites.items():
+        name, city, region = display_sites[key]
         ids = sorted(ids)
-        out.append(RecruitmentSite(name=name, city=city or None, region=region or None, country=country or None, historical_trial_count=len(ids), matching_nct_ids=ids, source_urls=[STUDY_URL.format(nct_id=i) for i in ids], explanation=f"Listed in {len(ids)} public ClinicalTrials.gov record(s) matching '{conditions[0]}'. Historical activity is not patient volume, expertise, availability, or a partnership."))
+        aliases = f" Name variants merged: {'; '.join(sorted(names[key]))}." if len(names[key]) > 1 else ""
+        # Merged name variants can report slightly different points; pick one independent of API order.
+        latitude, longitude = min(coordinates[key]) if coordinates[key] else (None, None)
+        out.append(RecruitmentSite(name=name, city=city or None, region=region or None, country="United States", latitude=latitude, longitude=longitude, historical_trial_count=len(ids), matching_nct_ids=ids, source_urls=[STUDY_URL.format(nct_id=i) for i in ids], explanation=f"Listed in {len(ids)} distinct public ClinicalTrials.gov record(s) matching '{conditions[0]}'.{aliases} Historical activity is not patient volume, expertise, availability, or a partnership."))
     return sorted(out, key=lambda x: (-x.historical_trial_count, x.name))[:config.RARE_REACH_MAX_SITES]
 
 def build_rare_reach(raw_nct_id: str, rules: list[Rule], trial: TrialInfo | None = None, client: httpx.Client | None = None) -> RareReachResponse:

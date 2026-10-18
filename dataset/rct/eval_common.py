@@ -11,7 +11,7 @@ sys.path.insert(0,str(ROOT/'backend'))
 from app import config
 from app.responder_agent import aggregate_payload, run_agent, SYSTEM
 from app.responder_evidence import read_cases
-from app.responder_scoring import parsed_output, score_metric
+from app.responder_scoring import parsed_output, score_metric, SCORING_VERSION
 from app.responder_claims import POLICY_VERSION, contradiction_errors, evidence_label
 
 HERE = Path(__file__).resolve().parent
@@ -70,10 +70,10 @@ def group_summary(rows):
 def record_base():
     return dict(ground_truth_sha256=hashlib.sha256((HERE/'ground_truth.jsonl').read_bytes()).hexdigest(),
       model=config.LLM_MODEL,prompt_sha256=hashlib.sha256(SYSTEM.encode()).hexdigest(),
-      policy_version=POLICY_VERSION,
+      policy_version=POLICY_VERSION,scoring_version=SCORING_VERSION,
       recorded_at=datetime.now(timezone.utc).isoformat(),
       limitations=['Exploratory statistical reference labels, not clinical truth; not protocol recommendations.',
-        'Undetectable planted targets are retained. Strict planted recall alone cannot establish statistical sensitivity.',
+        'Planted recall includes only detectable, decision-eligible planted targets; other cases are excluded from its denominator.',
         'No-significant-interaction does not establish equal treatment effects.',
         'Partly non-randomized treatment assignment: weaker evidence (GBSG).',
         'Underpowered groups retain statistical significance but their decision label is no reliable difference.',
@@ -99,7 +99,7 @@ def claim_audit(rows, legacy):
       template_fallback_n=sum(row['guard_applied'] for row in rows))
 
 
-def local_evaluation():
+def local_evaluation(reuse_outputs=False):
     cases = read_cases(); by_case = {case.case_id:case for case in cases}
     rows = eval_rows(cases)
     baseline_path = HERE/'local_eval_results.before_claims.json'
@@ -113,16 +113,29 @@ def local_evaluation():
         raw = output.raw_output or served
         return row['input_table'],dict(agent_output=served,raw_agent_output=raw,
           guard_applied=output.used_template,claim_issues=json.dumps(output.claim_issues))
-    with ThreadPoolExecutor(max_workers=3) as executor:
-        outputs = dict(executor.map(evaluate,unique.values()))
+    if reuse_outputs:
+        saved = json.loads((HERE/'local_eval_results.json').read_text())
+        for key in ['ground_truth_sha256','model','prompt_sha256','policy_version']:
+            if saved.get(key) != record_base()[key]:
+                raise ValueError(f'Cached evaluation {key} changed; fresh agent outputs required.')
+        saved_by_input = {row['input_table']:row for row in saved['cases']}
+        outputs = {}
+        for payload in unique:
+            previous = saved_by_input[payload]
+            outputs[payload] = {key:previous[key] for key in ['agent_output','raw_agent_output','guard_applied','claim_issues']}
+    else:
+        with ThreadPoolExecutor(max_workers=3) as executor:
+            outputs = dict(executor.map(evaluate,unique.values()))
     for row in rows:
         row.update(outputs[row['input_table']])
         previous = legacy_by_key.get((row['case_id'],row['prompt_variant']))
-        row['legacy_agent_output'] = previous['agent_output'] if previous else row['raw_agent_output']
-        row['legacy_input_table'] = previous['input_table'] if previous else row['input_table']
-    result = {**record_base(),'status':'local_only','mode':'local_agent_local_scoring','runs':group_summary(rows),'cases':rows,
+        previous_saved = saved_by_input[row['input_table']] if reuse_outputs else {}
+        row['legacy_agent_output'] = previous['agent_output'] if previous else previous_saved.get('legacy_agent_output',row['raw_agent_output'])
+        row['legacy_input_table'] = previous['input_table'] if previous else previous_saved.get('legacy_input_table',row['input_table'])
+    result = {**record_base(),'status':'local_only','mode':'cached_agent_local_rescoring' if reuse_outputs else 'local_agent_local_scoring','runs':group_summary(rows),'cases':rows,
       'invalid_outputs':sum(parsed_output(r['agent_output']) is None for r in rows),
-      'claim_audit':claim_audit(rows,legacy)}
+      'claim_audit':claim_audit(rows,legacy),'agent_outputs_reused':reuse_outputs,
+      'message':'Saved agent responses rescored with corrected metric definitions; no new model inference was run.' if reuse_outputs else ''}
     (HERE/'local_eval_results.json').write_text(json.dumps(result,indent=2,ensure_ascii=False,allow_nan=False)+'\n',encoding='utf-8')
     (HERE/'claim_consistency_before_after.json').write_text(json.dumps(result['claim_audit'],indent=2)+'\n')
     return result
