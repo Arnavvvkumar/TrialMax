@@ -64,6 +64,7 @@ def find_hospitals(trial: TrialInfo, client: httpx.Client | None = None) -> list
     finally:
         if owned: client.close()
     sites: dict[tuple[str,str,str,str], set[str]] = defaultdict(set)
+    coordinates: dict[tuple[str,str,str,str], tuple[float, float]] = {}
     for study in studies if isinstance(studies, list) else []:
         protocol = study.get("protocolSection", {}); nct = protocol.get("identificationModule", {}).get("nctId")
         for loc in protocol.get("contactsLocationsModule", {}).get("locations", []) or []:
@@ -71,10 +72,15 @@ def find_hospitals(trial: TrialInfo, client: httpx.Client | None = None) -> list
                 continue
             key = tuple(str(loc.get(k) or "").strip() for k in ("facility", "city", "state", "country"))
             if nct and key[0]: sites[key].add(str(nct))
+            geo = loc.get("geoPoint") or {}
+            latitude, longitude = geo.get("lat"), geo.get("lon")
+            if key not in coordinates and isinstance(latitude, (int, float)) and isinstance(longitude, (int, float)):
+                coordinates[key] = (float(latitude), float(longitude))
     out = []
     for (name, city, region, country), ids in sites.items():
         ids = sorted(ids)
-        out.append(RecruitmentSite(name=name, city=city or None, region=region or None, country=country or None, historical_trial_count=len(ids), matching_nct_ids=ids, source_urls=[STUDY_URL.format(nct_id=i) for i in ids], explanation=f"Listed in {len(ids)} public ClinicalTrials.gov record(s) matching '{conditions[0]}'. Historical activity is not patient volume, expertise, availability, or a partnership."))
+        latitude, longitude = coordinates.get((name, city, region, country), (None, None))
+        out.append(RecruitmentSite(name=name, city=city or None, region=region or None, country=country or None, latitude=latitude, longitude=longitude, historical_trial_count=len(ids), matching_nct_ids=ids, source_urls=[STUDY_URL.format(nct_id=i) for i in ids], explanation=f"Listed in {len(ids)} public ClinicalTrials.gov record(s) matching '{conditions[0]}'. Historical activity is not patient volume, expertise, availability, or a partnership."))
     return sorted(out, key=lambda x: (-x.historical_trial_count, x.name))[:config.RARE_REACH_MAX_SITES]
 
 def build_rare_reach(raw_nct_id: str, rules: list[Rule], trial: TrialInfo | None = None, client: httpx.Client | None = None) -> RareReachResponse:

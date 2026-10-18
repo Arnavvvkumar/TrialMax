@@ -6,7 +6,7 @@ class Response:
     status_code = 404
     def raise_for_status(self): pass
     def json(self):
-        return {"studies": [{"protocolSection": {"identificationModule": {"nctId": "NCT00000001"}, "contactsLocationsModule": {"locations": [{"facility": "Example Hospital", "city": "Boston", "state": "MA", "country": "United States"}, {"facility": "Non-US Hospital", "city": "Toronto", "state": "ON", "country": "Canada"}]}}}, {"protocolSection": {"identificationModule": {"nctId": "NCT00000002"}, "contactsLocationsModule": {"locations": [{"facility": "Example Hospital", "city": "Boston", "state": "MA", "country": "United States"}]}}}]}
+        return {"studies": [{"protocolSection": {"identificationModule": {"nctId": "NCT00000001"}, "contactsLocationsModule": {"locations": [{"facility": "Example Hospital", "city": "Boston", "state": "MA", "country": "United States", "geoPoint": {"lat": 42.3601, "lon": -71.0589}}, {"facility": "Non-US Hospital", "city": "Toronto", "state": "ON", "country": "Canada"}]}}}, {"protocolSection": {"identificationModule": {"nctId": "NCT00000002"}, "contactsLocationsModule": {"locations": [{"facility": "Example Hospital", "city": "Boston", "state": "MA", "country": "United States"}]}}}]}
 
 
 class Client:
@@ -31,6 +31,7 @@ def test_sites_count_public_trial_records_not_patients():
     sites = find_hospitals(trial(), Client())
     assert len(sites) == 1 and sites[0].historical_trial_count == 2
     assert sites[0].country == "United States"
+    assert (sites[0].latitude, sites[0].longitude) == (42.3601, -71.0589)
     assert "not patient volume" in sites[0].explanation
 
 

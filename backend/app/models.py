@@ -264,6 +264,8 @@ class RecruitmentSite(BaseModel):
     city: Optional[str] = None
     region: Optional[str] = None
     country: Optional[str] = None
+    latitude: Optional[float] = None
+    longitude: Optional[float] = None
     historical_trial_count: int
     matching_nct_ids: list[str]
     source_urls: list[str]
