@@ -128,7 +128,7 @@ The deterministic simulator remains the source of truth for pass, fail, and unkn
 | Mapping | D3 Geo, TopoJSON, US Atlas |
 | AI and evaluation | Chalk |
 | Testing | Pytest, Node test runner |
-| Deployment | Docker |
+| Deployment | Render |
 
 ---
 
