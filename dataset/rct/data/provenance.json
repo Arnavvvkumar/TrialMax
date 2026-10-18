@@ -1,0 +1,70 @@
+{
+  "colon": {
+    "citation": "Moertel CG et al. Levamisole and fluorouracil for adjuvant therapy of resected colon carcinoma. N Engl J Med 1990;322:352-358. Moertel CG et al. Ann Intern Med 1995;122:321-326.",
+    "columns": [
+      "rownames",
+      "id",
+      "study",
+      "rx",
+      "sex",
+      "age",
+      "obstruct",
+      "perfor",
+      "adhere",
+      "nodes",
+      "status",
+      "differ",
+      "extent",
+      "surg",
+      "node4",
+      "time",
+      "etype"
+    ],
+    "credit": "Therneau T (2024). survival: A Package for Survival Analysis in R. Data via Rdatasets (Arel-Bundock).",
+    "downloaded_at": "2026-10-18T03:54:44+00:00",
+    "rows": 1858,
+    "sha256": "6f3472a64f696e3195daa198f054180c3e4c66408f7fb8c548c6f4c7b8f898ee",
+    "url": "https://vincentarelbundock.github.io/Rdatasets/csv/survival/colon.csv"
+  },
+  "gbsg": {
+    "citation": "Schumacher M et al. Randomized 2x2 trial evaluating hormonal treatment and the duration of chemotherapy in node-positive breast cancer patients. J Clin Oncol 1994;12:2086-2093 (German Breast Cancer Study Group; hormon was not fully randomized).",
+    "columns": [
+      "rownames",
+      "pid",
+      "age",
+      "meno",
+      "size",
+      "grade",
+      "nodes",
+      "pgr",
+      "er",
+      "hormon",
+      "rfstime",
+      "status"
+    ],
+    "credit": "Therneau T (2024). survival: A Package for Survival Analysis in R. Data via Rdatasets (Arel-Bundock).",
+    "downloaded_at": "2026-10-18T03:54:44+00:00",
+    "rows": 686,
+    "sha256": "9fa0fef0575d04d3273869be28405307f1b02993751498e8a0c844541cccd5d9",
+    "url": "https://vincentarelbundock.github.io/Rdatasets/csv/survival/gbsg.csv"
+  },
+  "veteran": {
+    "citation": "Kalbfleisch JD, Prentice RL. The Statistical Analysis of Failure Time Data. Wiley, 1980 (Veterans' Administration Lung Cancer Trial).",
+    "columns": [
+      "rownames",
+      "trt",
+      "celltype",
+      "time",
+      "status",
+      "karno",
+      "diagtime",
+      "age",
+      "prior"
+    ],
+    "credit": "Therneau T (2024). survival: A Package for Survival Analysis in R. Data via Rdatasets (Arel-Bundock).",
+    "downloaded_at": "2026-10-18T03:54:44+00:00",
+    "rows": 137,
+    "sha256": "3fba5cb9b15a10ab94d54e28b54d2c39d95c27b0fcff1c57aee0eb7edfd93950",
+    "url": "https://vincentarelbundock.github.io/Rdatasets/csv/survival/veteran.csv"
+  }
+}
