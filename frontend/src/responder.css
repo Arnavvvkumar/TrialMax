@@ -13,4 +13,13 @@
 .responder-scores { width: 100%; min-width: 48rem; font-size: .85rem; }
 .responder-scores td, .responder-scores th { padding: .6rem; text-align: left; border-bottom: 1px solid #d8fbe12d; }
 .responder-scores small { display: block; color: #a9c3b3; }
+/* Calm motion makes the evidence scanable without suggesting clinical certainty. */
+.responder-row { animation: responder-row-enter .42s both; }
+.responder-row:nth-of-type(2) { animation-delay: .05s; }.responder-row:nth-of-type(3) { animation-delay: .1s; }.responder-row:nth-of-type(4) { animation-delay: .15s; }.responder-row:nth-of-type(5) { animation-delay: .2s; }
+.responder-interval { transition: transform .18s ease, color .18s ease; }.responder-interval:hover { transform: translateX(4px); color: #f1fff5; }
+.responder-interval svg { transition: border-color .18s ease, background .18s ease, box-shadow .18s ease; }.responder-interval:hover svg { border-color: #a9ed9188; background: #a9ed9112; box-shadow: 0 0 18px #79db9b18; }
+.responder-interval line, .responder-interval circle { transition: stroke .18s ease, fill .18s ease; }.responder-interval:hover line, .responder-interval:hover circle { stroke: #c4ffad; fill: #c4ffad; }.responder-interval.out:hover line, .responder-interval.out:hover circle { stroke: #ffd18a; fill: #ffd18a; }
+.responder-agent { transition: transform .2s ease, border-color .2s ease, box-shadow .2s ease; }.responder-agent:hover { transform: translateY(-2px); border-color: #a9ed9166; box-shadow: 0 12px 26px #0314193b; }
+@keyframes responder-row-enter { from { opacity: 0; transform: translateY(9px); } to { opacity: 1; transform: translateY(0); } }
+@media (prefers-reduced-motion: reduce) { .responder-row { animation: none; }.responder-interval, .responder-interval svg, .responder-interval line, .responder-interval circle, .responder-agent { transition: none; } }
 @media (max-width: 850px) { .responder-layout { grid-template-columns: 1fr; } .responder-interval { grid-template-columns: 1fr; } }

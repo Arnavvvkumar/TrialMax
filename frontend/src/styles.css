@@ -89,3 +89,12 @@ select option{background-color:#0d2b30;color:#edf8ef}
 .population-trigger:hover{border-color:#a9ed9180}.population-trigger[aria-expanded="true"]{border-color:#a9ed91;box-shadow:0 0 0 3px #a9ed9124}.population-trigger svg{flex:none;transition:transform .16s}.population-trigger[aria-expanded="true"] svg{transform:rotate(180deg)}
 .population-menu{position:absolute;z-index:20;top:calc(100% + 7px);left:0;width:100%;padding:5px;border:1px solid #a9ed9166;border-radius:8px;background:#0d2b30;box-shadow:0 14px 28px #031419aa}
 .population-menu button{display:block;width:100%;min-height:38px;padding:9px 10px;border:0;border-radius:5px;background:transparent;color:#edf8ef;text-align:left}.population-menu button:hover,.population-menu button.selected{background:#a9ed9120;color:#f5fff6}.population-menu button:focus-visible{outline:2px solid #a9ed91;outline-offset:-2px}
+
+/* Result visuals ease in and reveal detail on inspection. */
+.chart-row,.rare-site-row,.recruitment-map .site-markers g{transition:transform .18s ease,opacity .18s ease,filter .18s ease}
+.chart-row:hover,.rare-site-row:hover{transform:translateX(4px)}
+.chart-row:hover .chart-track i,.rare-site-row:hover .rare-bar-track i{filter:brightness(1.16);box-shadow:0 0 12px #a9ed9150}
+.recruitment-map .site-markers g:hover{filter:brightness(1.22);transform:scale(1.14);transform-origin:center}.recruitment-map .site-marker{transition:r .18s ease,fill .18s ease,stroke .18s ease}
+.visual-analysis,.rare-grid{animation:result-section-enter .4s ease both}.rare-action{transition:transform .18s ease,border-color .18s ease,background .18s ease}.rare-action:hover{transform:translateY(-3px);border-color:#a9ed9166;background:#a9ed910d}
+@keyframes result-section-enter{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+@media(prefers-reduced-motion:reduce){.chart-row,.rare-site-row,.recruitment-map .site-markers g,.recruitment-map .site-marker,.rare-action{transition:none}.visual-analysis,.rare-grid{animation:none}}
