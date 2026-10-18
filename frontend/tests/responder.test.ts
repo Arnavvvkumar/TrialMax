@@ -1,9 +1,62 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { effectLabel, evidenceSuggestion, forestInterval, hostedResponderValidation, subgroupEvidenceLabel, responderMetrics } from '../src/responder.ts'
-import type { ResponderEffect, ResponderResponse } from '../src/responderTypes.ts'
+import { agentVerdict, effectLabel, evaluationHeadline, evidenceSuggestion, expectedFlag, forestInterval, hostedResponderValidation, overallStat, plotPosition, pooledMetric, responderMetrics, subgroupEvidenceLabel, subgroupStatus } from '../src/responder.ts'
+import type { ResponderEffect, ResponderResponse, ResponderRun, ResponderSubgroup } from '../src/responderTypes.ts'
 
 const effect = (hr: number | null, low: number | null, high: number | null): ResponderEffect => ({hr,ci_low:low,ci_high:high,p:null,status:'ok'})
+const group = (id: string, truth_label: ResponderSubgroup['truth_label'], interaction_q: number | null = null, underpowered = false) =>
+  ({id, label: `Group ${id}`, truth_label, interaction_q, underpowered, hr_subgroup: effect(.7,.5,.9)}) as ResponderSubgroup
+
+test('subgroup status names the reference label in plain language', () => {
+  assert.deepEqual(subgroupStatus(group('A','weaker_benefit')), {text:'Benefits less',tone:'red'})
+  assert.deepEqual(subgroupStatus(group('A','stronger_benefit',.05)), {text:'Benefits more',tone:'sage'})
+  assert.deepEqual(subgroupStatus(group('A','stronger_benefit',.05,true)), {text:'Too few events',tone:'amber'})
+  assert.deepEqual(subgroupStatus(group('A','weaker_benefit',.05,true)), {text:'Too few events',tone:'amber'})
+  assert.deepEqual(subgroupStatus(group('A','no_reliable_difference',.4,true)), {text:'Too few events',tone:'amber'})
+  assert.deepEqual(subgroupStatus(group('A','no_reliable_difference',.4)), {text:'No difference',tone:'gray'})
+  assert.equal(subgroupStatus({...group('A','weaker_benefit'), hr_subgroup:{...effect(null,null,null),status:'unestimable'}}).text, 'Not estimable')
+})
+
+test('expected flag is the weaker-benefit group with the smallest q, never a stronger-benefit group', () => {
+  assert.equal(expectedFlag([group('A','no_reliable_difference'), group('B','stronger_benefit',.01)]), null)
+  assert.equal(expectedFlag([group('C','weaker_benefit',.08), group('B','weaker_benefit',.02), group('A','weaker_benefit',.02)]), 'A')
+  assert.equal(expectedFlag([group('A','weaker_benefit',.01,true)]), null)
+})
+
+test('overall stat claims a direction only when the whole CI is on one side of HR 1', () => {
+  const endpoint = 'Overall survival (death)'
+  assert.deepEqual(overallStat({endpoint, overall:effect(.689,.546,.869)}), {value:'−31%', caption:'risk of death', verdict:'Helps', tone:'sage'})
+  assert.deepEqual(overallStat({endpoint, overall:effect(1.02,.71,1.45)}), {value:'+2%', caption:'risk of death', verdict:'No clear effect', tone:'gray'})
+  assert.equal(overallStat({endpoint, overall:effect(1.5,1.1,2)}).verdict, 'Harms')
+  assert.equal(overallStat({endpoint:'Survival', overall:effect(null,null,null)}).caption, 'risk of the outcome')
+})
+
+test('agent verdict compares the AI with the reference answer', () => {
+  const data = (subgroups: ResponderSubgroup[], flag: string | null, invalid = false) =>
+    ({evidence:{subgroups}, suggestion:{flag, invalid}}) as unknown as ResponderResponse
+  assert.equal(agentVerdict(data([group('A','no_reliable_difference')], null)), 'agrees')
+  assert.equal(agentVerdict(data([group('A','weaker_benefit',.01)], 'A')), 'agrees')
+  assert.equal(agentVerdict(data([group('A','no_reliable_difference')], 'A')), 'disagrees')
+  assert.equal(agentVerdict(data([group('A','weaker_benefit',.01)], null)), 'disagrees')
+  assert.equal(agentVerdict(data([], null, true)), 'unavailable')
+})
+
+test('chart scale is symmetric around HR 1 and clamps extremes', () => {
+  assert.equal(plotPosition(1), 50)
+  assert.equal(plotPosition(.5) + plotPosition(2), 100)
+  assert.deepEqual([plotPosition(.001), plotPosition(1000)], [0, 100])
+})
+
+test('evaluation headline pools counts by denominator and discloses missing planted targets', () => {
+  const run = (prompt_variant: string, variant: string, n: number, abstain: number | null, abstainN: number, detectable = 0) =>
+    ({prompt_variant, variant, n, detectable_planted_n: detectable, scores:{abstains_when_null:abstain, number_fidelity:1}, denominators:{abstains_when_null:abstainN, number_fidelity:n}}) as ResponderRun
+  const runs = [run('names_only','originals',3,1,3), run('names_only','planted',9,5/6,6), run('with_stats','originals',3,1,3), run('with_stats','planted',9,1,6)]
+  assert.deepEqual(pooledMetric(runs, 'abstains_when_null'), {passed:17, total:18})
+  assert.equal(pooledMetric(runs, 'missing_metric'), null)
+  const head = evaluationHeadline({status:'complete', runs})
+  assert.deepEqual([head.cases, head.answers, head.realNumbers, head.validJson, head.noPlantedTargets], [12, 24, {passed:24,total:24}, null, true])
+  assert.equal(evaluationHeadline({status:'complete', runs: runs.map(r => ({...r, detectable_planted_n: 2}))}).noPlantedTargets, false)
+})
 
 test('forest intervals use a log scale centered on HR one and clip transparently', () => {
   const row = forestInterval(effect(1,.1,10))!
