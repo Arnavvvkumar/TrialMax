@@ -1,17 +1,84 @@
 import { useEffect, useRef, useState } from 'react'
+import { AlertTriangle, CheckCircle2, CircleHelp, MinusCircle, XCircle } from 'lucide-react'
 import { getResponderEvidence } from './simulationService'
-import { effectLabel, evidenceSuggestion, forestInterval, hostedResponderValidation } from './responder'
-import type { ResponderEffect, ResponderResponse } from './responderTypes'
+import { agentVerdict, effectLabel, evaluationHeadline, evidenceSuggestion, hostedResponderValidation, overallStat, PLOT_TICKS, plotPosition, shortName, subgroupStatus } from './responder'
+import type { Tone } from './responder'
+import type { ResponderResponse, ResponderSubgroup } from './responderTypes'
 import './responder.css'
 
-function Interval({ effect, tone }: { effect: ResponderEffect; tone: string }) {
-  const interval = forestInterval(effect)
-  return <div className={`responder-interval ${tone}`}><span>{tone === 'in' ? 'In subgroup' : 'Complement'}: {effectLabel(effect)}</span>
-    {interval && <svg viewBox="0 0 100 12" role="img" aria-label={`${effectLabel(effect)}${interval.clipped ? '; confidence interval clipped to plot range' : ''}`}>
-      <line x1="50" x2="50" y1="0" y2="12" className="responder-null" /><line x1={interval.left} x2={interval.right} y1="6" y2="6" />
-      <line x1={interval.left} x2={interval.left} y1="3" y2="9" /><line x1={interval.right} x2={interval.right} y1="3" y2="9" /><circle cx={interval.point} cy="6" r="2" />
-    </svg>}{interval?.clipped && <small>CI extends beyond plot range</small>}</div>
+const TONE_ICON = { sage: CheckCircle2, red: AlertTriangle, amber: CircleHelp, gray: MinusCircle }
+
+function Chip({ tone, children }: { tone: Tone; children: React.ReactNode }) {
+  const Icon = TONE_ICON[tone]
+  return <span className={`badge ${tone}`}><Icon size={13} />{children}</span>
 }
+
+function Tile({ label, value, sub, chip }: { label: string; value: React.ReactNode; sub: string; chip?: React.ReactNode }) {
+  return <section className="card responder-tile"><span className="stat-label">{label}</span><strong>{value}</strong><p>{sub}</p>{chip}</section>
+}
+
+// ---------------------------------------------------------------- difference chart
+
+const pct = (value: number) => `${plotPosition(value)}%`
+
+// One mark per group: the interaction ratio (group's HR ÷ everyone else's HR). Left of 1 = the drug
+// works better in the group, right = worse. Only groups that survive multiplicity correction get color.
+function DifferenceMark({ row, tone }: { row: ResponderSubgroup; tone: Tone }) {
+  const { hr, ci_low, ci_high } = row.interaction
+  if (hr === null || ci_low === null || ci_high === null || hr <= 0 || ci_low <= 0) return <span className="forest-missing">Not estimable</span>
+  const tip = `Difference vs everyone else: ${effectLabel(row.interaction)} · in group HR ${effectLabel(row.hr_subgroup)} · everyone else HR ${effectLabel(row.hr_complement)} · BH q ${row.interaction_q?.toPrecision(2) ?? 'n/a'}`
+  return <div className={`forest-mark diff ${tone}`} title={tip}>
+    <i className="forest-range" style={{ left: pct(ci_low), width: `calc(${pct(ci_high)} - ${pct(ci_low)})` }} />
+    {ci_low < 1 / 8 && <i className="forest-clip left">◀</i>}{ci_high > 8 && <i className="forest-clip right">▶</i>}
+    <i className="forest-point" style={{ left: pct(hr) }} />
+  </div>
+}
+
+function ForestChart({ rows }: { rows: ResponderSubgroup[] }) {
+  return <div className="forest" role="img" aria-label="How much better or worse the drug works in each patient group than in everyone else">
+    <div className="forest-row forest-head"><span /><div className="forest-zones"><span>◀ Works better in group</span><span>Works worse in group ▶</span></div><span /></div>
+    {rows.map(row => { const status = subgroupStatus(row); return <div className={`forest-row ${status.tone === 'amber' ? 'is-faint' : ''}`} key={row.id}>
+      <span className="forest-label" title={row.label}>{row.label}</span>
+      <div className="forest-track"><i className="forest-null" /><DifferenceMark row={row} tone={status.tone} /></div>
+      <Chip tone={status.tone}>{status.text}</Chip>
+    </div> })}
+    <div className="forest-row forest-axis"><span /><div className="forest-ticks">{PLOT_TICKS.map(tick => <span key={tick} style={{ left: pct(tick) }}>{tick === 1 ? 'Same' : tick}</span>)}</div><span /></div>
+    <div className="forest-legend"><span><i className="key-diff" />Difference vs everyone else</span><span><i className="key-range" />Uncertainty range</span><span><i className="key-null" />Works the same</span><span className="forest-note">Colored only when reliable after correcting for testing many groups · hover a mark for numbers</span></div>
+  </div>
+}
+
+// ---------------------------------------------------------------- AI report card
+
+function Meter({ label, tally }: { label: string; tally: { passed: number; total: number } | null }) {
+  if (!tally) return null
+  return <div className="responder-meter"><span>{label}</span><div className="meter-track"><i style={{ width: `${100 * tally.passed / tally.total}%` }} /></div><b>{tally.passed}/{tally.total}</b></div>
+}
+
+function ReportCard({ evaluations }: { evaluations: ResponderResponse['evaluations'] }) {
+  const head = evaluationHeadline(evaluations), hosted = hostedResponderValidation(evaluations)
+  if (!evaluations.runs.length) return null
+  return <section className="card">
+    <div className="card-top"><h3>AI report card</h3><Chip tone={hosted ? 'sage' : 'amber'}>{hosted ? 'Graded in Chalk Evaluations' : 'Local scores only'}</Chip></div>
+    <Meter label="No false findings" tally={head.abstained} />
+    <Meter label="Quoted numbers real" tally={head.realNumbers} />
+    <Meter label="Valid answer format" tally={head.validJson} />
+    {head.noPlantedTargets && <div className="responder-meter is-untested"><span>Finds a hidden effect</span><div className="meter-track" /><b>Not tested yet</b></div>}
+    <details><summary>Full evaluation table</summary>
+      <p className="muted">{head.cases} historical cases × 2 prompt styles = {head.answers} answers. “No overclaim” also penalizes a confident “nothing here”, so it reads low even when the answer is right.</p>
+      <div className="table-scroll"><table className="responder-scores"><thead><tr><th>Prompt / cases</th><th>Correct flag</th><th>No overclaim</th><th>Null abstention</th><th>Planted recall</th><th>Number fidelity</th><th>JSON valid</th></tr></thead><tbody>{evaluations.runs.map(run => <tr key={`${run.prompt_variant}-${run.variant}`}>
+        <td>{run.prompt_variant} / {run.variant} (n={run.n}){run.run_id && <small>Run: {run.run_id}</small>}</td>{['correct_flag', 'no_overclaim', 'abstains_when_null', 'planted_recall', 'number_fidelity', 'json_valid'].map(metric => <td key={metric}>{run.scores[metric] == null ? 'N/A' : `${(100 * run.scores[metric]!).toFixed(1)}%`}<small>n={run.denominators[metric] ?? 0}</small></td>)}</tr>)}</tbody></table></div>
+    </details>
+  </section>
+}
+
+function StatisticsTable({ rows }: { rows: ResponderSubgroup[] }) {
+  return <div className="table-scroll"><table className="responder-scores"><thead><tr><th>Group</th><th>HR in group (95% CI)</th><th>HR everyone else (95% CI)</th><th>Interaction p</th><th>BH q</th><th>Events in group (treated / control)</th></tr></thead>
+    <tbody>{rows.map(row => <tr key={row.id}><td>{row.label}</td><td>{effectLabel(row.hr_subgroup)}</td><td>{effectLabel(row.hr_complement)}</td>
+      <td>{row.interaction.p?.toPrecision(3) ?? 'n/a'}</td><td>{row.interaction_q?.toPrecision(3) ?? 'n/a'}</td>
+      <td>{row.subgroup.treatment_events} / {row.subgroup.control_events}{row.missing_n ? <small>{row.missing_n} missing</small> : null}</td></tr>)}</tbody></table></div>
+}
+
+// ---------------------------------------------------------------- page
 
 export function ResponderCard() {
   const [trial, setTrial] = useState('colon'), [data, setData] = useState<ResponderResponse | null>(null)
@@ -29,32 +96,42 @@ export function ResponderCard() {
     } catch (cause) { if (!abort.signal.aborted) setError(String(cause)) }
     finally { if (!abort.signal.aborted) setPending(false) }
   }
-  const validated = data && hostedResponderValidation(data.evaluations)
-  return <section className="card responder-card" aria-label="Responder evidence">
-    <div className="card-top"><div><h2>{validated ? 'Responder evidence (validated method)' : 'Responder evidence (method validation pending)'}</h2>
-      <p>Separate historical benchmark. These findings do not describe the loaded trial or the synthetic eligibility cohort.</p></div></div>
-    <div className="responder-controls"><label>Historical trial<select aria-label="Historical responder trial" value={trial} onChange={event => setTrial(event.target.value)}>
-      <option value="colon">Colon: Lev+5FU versus observation</option><option value="veteran">Veteran: test versus standard</option><option value="gbsg">GBSG: hormonal therapy (weaker evidence)</option>
-    </select></label><button className="btn outline" disabled={pending} onClick={load}>{pending ? 'Reviewing aggregate evidence…' : 'Load responder evidence'}</button></div>
+  const overall = data && overallStat(data.evidence)
+  const weaker = data?.evidence.subgroups.filter(row => row.truth_label === 'weaker_benefit').length ?? 0
+  const verdict = data && agentVerdict(data)
+  return <div className="results-stack responder-page">
+    <section className="card responder-controls">
+      <label>Historical trial<select aria-label="Historical responder trial" value={trial} onChange={event => setTrial(event.target.value)}>
+        <option value="colon">Colon cancer · Lev+5FU vs observation</option><option value="veteran">Lung cancer · test vs standard regimen</option><option value="gbsg">Breast cancer · hormonal therapy</option>
+      </select></label>
+      <button className="btn primary" disabled={pending} onClick={load}>{pending ? 'Loading…' : 'Show evidence'}</button>
+      <span className="badge gray">Past trials · separate from your loaded trial</span>
+    </section>
     {error && <p className="error-notice" role="alert">{error}</p>}
-    {data && <>
-      <div className="warning-box"><div><strong>Exploratory efficacy evidence; researcher decides.</strong><p>Old trials, multiplicity-adjusted subgroup comparisons, no treatment-safety assessment. {validated ? 'Completed evaluation runs do not establish clinical validity.' : 'Hosted validation is not complete.'}</p>
-        {data.evidence.trial_key === 'gbsg' && <strong>Partly non-randomized treatment assignment: weaker evidence.</strong>}</div></div>
-      <p><b>{data.evidence.trial_name}</b> · {data.evidence.endpoint} · n={data.evidence.n} · events={data.evidence.events}</p>
-      <p>{data.evidence.treatment} versus {data.evidence.control}. Overall HR: {effectLabel(data.evidence.overall)}.</p>
-      <div className="responder-layout"><div><h3>Subgroup effects</h3><p className="muted">HRs compare treatment with control within each group. Use the interaction q-value to assess differences. Plot uses a log scale, 0.1–10; vertical line is HR=1.</p>
-        {data.evidence.subgroups.map(row => <article className="responder-row" key={row.id}>
-          <div className="responder-row-heading"><strong>{row.label}</strong><span className="badge gray">{row.truth_label.replaceAll('_', ' ')}</span>{row.underpowered && <span className="badge amber">Underpowered</span>}</div>
-          <Interval effect={row.hr_subgroup} tone="in" /><Interval effect={row.hr_complement} tone="out" />
-          <p className="muted">Interaction HR {effectLabel(row.interaction)} · p={row.interaction.p?.toPrecision(3) ?? 'unavailable'} · BH q={row.interaction_q?.toPrecision(3) ?? 'unavailable'}</p>
-          <details><summary>Arm counts and missingness</summary><p>Subgroup: treated {row.subgroup.treatment_n} ({row.subgroup.treatment_events} events), control {row.subgroup.control_n} ({row.subgroup.control_events} events). Complement: treated {row.complement.treatment_n} ({row.complement.treatment_events} events), control {row.complement.control_n} ({row.complement.control_events} events). Missing subgroup values: {row.missing_n}.</p></details>
-        </article>)}</div><aside className="responder-agent"><h3>Chalk-hosted agent suggestion</h3><p>{evidenceSuggestion(data)}</p><p>{data.suggestion.rationale || 'No validated rationale available.'}</p><span className="badge amber">Confidence: {data.suggestion.confidence}</span><p className="muted">Reference labels are deterministic statistical labels. The agent never receives these labels or patient-level rows. Nothing is applied to the protocol.</p></aside></div>
-      <h3>{validated ? 'Chalk evaluation scores' : 'Evaluation status / local scores'}</h3>
-      <p className="muted">Mode: {data.evaluations.mode ?? data.evaluations.status}. {data.evaluations.message}</p>
-      <div className="table-scroll"><table className="responder-scores"><thead><tr><th>Prompt / cases</th><th>Correct flag</th><th>No overclaim</th><th>Null abstention</th><th>Planted recall</th><th>Number fidelity</th><th>JSON valid</th></tr></thead><tbody>{data.evaluations.runs.map(run => <tr key={`${run.prompt_variant}-${run.variant}`}>
-        <td>{run.prompt_variant} / {run.variant} (n={run.n}){run.run_id && <small>Run: {run.run_id}</small>}</td>{['correct_flag','no_overclaim','abstains_when_null','planted_recall','number_fidelity','json_valid'].map(metric => <td key={metric}>{run.scores[metric] == null ? 'N/A' : `${(100 * run.scores[metric]!).toFixed(1)}%`}<small>n={run.denominators[metric] ?? 0}</small></td>)}</tr>)}</tbody></table></div>
-      {data.evaluations.runs.some(run => run.variant === 'planted' && run.detectable_planted_n === 0) && <p className="warning-box">No detectable planted targets in this frozen snapshot. These scores cannot establish positive-case responder sensitivity or that statistics improved the agent.</p>}
-      <details><summary>Sources and limitations</summary><p>{data.evidence.provenance.citation}</p>{data.evidence.provenance.publication_url && <a href={data.evidence.provenance.publication_url} target="_blank" rel="noreferrer">Trial source ↗</a>}<ul>{[...new Set([...data.disclaimers,...(data.evaluations.limitations ?? [])])].map(text => <li key={text}>{text}</li>)}</ul></details>
+    {data && overall && verdict && <>
+      {data.evidence.trial_key === 'gbsg' && <div className="warning-box"><AlertTriangle size={16} /><strong>Partly non-randomized: weaker evidence</strong></div>}
+      <div className="responder-tiles">
+        <Tile label="Overall effect" value={overall.value} sub={overall.caption} chip={<Chip tone={overall.tone}>{overall.verdict}</Chip>} />
+        <Tile label="Groups that benefit less" value={`${weaker} / ${data.evidence.subgroups.length}`} sub="reliable after correction"
+          chip={weaker ? <Chip tone="red">Review exclusion</Chip> : <Chip tone="sage">No reason to exclude</Chip>} />
+        <Tile label="Chalk AI vs answer key" value={verdict === 'agrees' ? <CheckCircle2 size={34} className="ok" /> : verdict === 'disagrees' ? <XCircle size={34} className="bad" /> : <MinusCircle size={34} />}
+          sub={evidenceSuggestion(data).replace(/\.$/, '')} chip={<Chip tone={verdict === 'agrees' ? 'sage' : verdict === 'disagrees' ? 'red' : 'gray'}>{verdict === 'agrees' ? 'Agrees' : verdict === 'disagrees' ? 'Disagrees' : 'Unavailable'}</Chip>} />
+        <Tile label="Patients" value={data.evidence.n.toLocaleString()} sub={`${data.evidence.events.toLocaleString()} events · ${shortName(data.evidence.treatment)}`} />
+      </div>
+      <section className="card">
+        <div className="card-top"><h3>Effect by patient group</h3><Chip tone="gray">{data.evidence.trial_name}</Chip></div>
+        <ForestChart rows={data.evidence.subgroups} />
+        <details><summary>Show statistics</summary><StatisticsTable rows={data.evidence.subgroups} /></details>
+      </section>
+      <div className="responder-layout">
+        <ReportCard evaluations={data.evaluations} />
+        <section className="card responder-agent">
+          <div className="card-top"><h3>Chalk AI answer</h3><Chip tone="amber">Confidence: {data.suggestion.confidence}</Chip></div>
+          <p><b>{evidenceSuggestion(data)}</b></p>
+          <details><summary>Why?</summary><p>{data.suggestion.rationale || 'No validated rationale available.'}</p><p className="muted">Sees only the aggregate table, never the answer key or patient rows. Nothing is applied to the protocol.</p></details>
+        </section>
+      </div>
+      <details className="dashboard-details"><summary>Sources and limitations</summary><div className="card"><p>{data.evidence.provenance.citation}</p>{data.evidence.provenance.publication_url && <a href={data.evidence.provenance.publication_url} target="_blank" rel="noreferrer">Trial source ↗</a>}<ul className="assumptions">{[...new Set([...data.disclaimers, ...(data.evaluations.limitations ?? [])])].map(text => <li key={text}>{text}</li>)}</ul></div></details>
     </>}
-  </section>
+  </div>
 }

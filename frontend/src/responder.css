@@ -1,15 +1,86 @@
-.responder-controls { display: flex; align-items: end; gap: 1rem; flex-wrap: wrap; margin: 1rem 0; }
-.responder-controls label { display: grid; gap: .4rem; }
-.responder-layout { display: grid; grid-template-columns: minmax(0, 2fr) minmax(16rem, 1fr); gap: 1.5rem; }
-.responder-row { border-top: 1px solid #e2ebe5; padding: 1rem 0; }
-.responder-row-heading { display: flex; align-items: center; gap: .6rem; flex-wrap: wrap; }
-.responder-interval { display: grid; grid-template-columns: minmax(14rem, 1fr) 1fr; align-items: center; gap: .5rem; margin-top: .4rem; font-size: .85rem; }
-.responder-interval svg { width: 100%; height: 2rem; overflow: visible; }
-.responder-interval line, .responder-interval circle { stroke: #4e8070; stroke-width: .8; fill: #4e8070; }
-.responder-interval.out line, .responder-interval.out circle { stroke: #bc8441; fill: #bc8441; }
-.responder-interval .responder-null { stroke: #b8c4bd; stroke-dasharray: 1 1; stroke-width: .35; }
-.responder-agent { align-self: start; padding: 1rem; background: #f3f7f4; border-radius: 1rem; overflow-wrap: anywhere; }
-.responder-scores { width: 100%; min-width: 48rem; font-size: .85rem; }
-.responder-scores td, .responder-scores th { padding: .6rem; text-align: left; border-bottom: 1px solid #e2ebe5; }
-.responder-scores small { display: block; color: #6a7e72; }
-@media (max-width: 850px) { .responder-layout { grid-template-columns: 1fr; } .responder-interval { grid-template-columns: 1fr; } }
+/* Series colors validated with the dataviz palette checker (light surface): in-group green, everyone-else orange. */
+.responder-page { --series-in: #2f8a63; --series-out: #c0782e; --grid: #e2ebe5; --ink-muted: #6a7e72; }
+.responder-page .badge { gap: 5px; }
+.responder-controls { display: flex; align-items: end; gap: 1rem; flex-wrap: wrap; }
+.responder-controls label { display: grid; gap: .4rem; font-size: 12px; font-weight: 600; color: #516d5a; }
+.responder-controls .badge { margin-left: auto; }
+
+/* KPI row */
+.responder-tiles { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px; }
+.responder-tile { display: flex; flex-direction: column; gap: 6px; padding: 20px; }
+.responder-tile strong { font-size: 34px; line-height: 1.1; letter-spacing: -.8px; color: #2a4533; min-height: 38px; display: flex; align-items: center; }
+.responder-tile strong .ok { color: var(--series-in); }
+.responder-tile strong .bad { color: #a45143; }
+.responder-tile p { margin: 0; font-size: 11px; color: var(--ink-muted); }
+.responder-tile .badge { align-self: flex-start; margin-top: auto; }
+
+/* Forest chart: label | track | status */
+.forest { margin: 4px 0 12px; }
+.forest-row { display: grid; grid-template-columns: minmax(8rem, 16rem) minmax(0, 1fr) minmax(8rem, 12.5rem); align-items: center; gap: 14px; min-height: 34px; }
+.forest-row + .forest-row:not(.forest-axis) { border-top: 1px solid var(--grid); }
+.forest-row.is-faint .forest-mark { opacity: .45; }
+.forest-label { font-size: 12px; color: #2f4636; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.forest-track { position: relative; height: 26px; }
+.forest-null { position: absolute; left: 50%; top: -4px; bottom: -4px; border-left: 1px dashed #9fb0a5; }
+.forest-overall { position: absolute; top: -4px; bottom: -4px; border-left: 2px solid #aebfb3; }
+.forest-mark { position: absolute; inset: 0; }
+.forest-mark.in { top: 3px; height: 8px; }
+.forest-mark.out { top: 15px; height: 8px; }
+.forest-range { position: absolute; top: 3px; height: 2px; border-radius: 2px; }
+.forest-point { position: absolute; top: 0; width: 8px; height: 8px; margin-left: -4px; box-shadow: 0 0 0 2px #fff; }
+.forest-mark.in .forest-range, .forest-mark.in .forest-point { background: var(--series-in); }
+.forest-mark.in .forest-point { border-radius: 50%; }
+.forest-mark.out .forest-range, .forest-mark.out .forest-point { background: var(--series-out); }
+.forest-mark.out .forest-point { transform: rotate(45deg) scale(.9); }
+.forest-mark:hover .forest-range { height: 4px; top: 2px; }
+/* Difference chart: one mark per row. Gray unless the reference label is reliable (status color + chip). */
+.forest-mark.diff { --mark: #6f8378; top: 9px; height: 8px; }
+.forest-mark.diff.red { --mark: #b5523f; }
+.forest-mark.diff.sage { --mark: var(--series-in); }
+.forest-mark.diff .forest-range, .forest-mark.diff .forest-point { background: var(--mark); }
+.forest-mark.diff .forest-point { border-radius: 50%; }
+.forest-clip { position: absolute; top: -2px; font-size: 9px; font-style: normal; color: var(--mark); }
+.forest-clip.left { left: -2px; }
+.forest-clip.right { right: -2px; }
+.forest-missing { position: absolute; left: 50%; top: 5px; transform: translateX(-50%); font-size: 11px; color: var(--ink-muted); }
+.forest-head { min-height: 22px; }
+.forest-zones { display: flex; justify-content: space-between; font-size: 10px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; }
+.forest-zones span { color: var(--ink-muted); }
+.forest-axis { min-height: 20px; }
+.forest-ticks { position: relative; height: 16px; font-size: 10px; color: var(--ink-muted); }
+.forest-ticks span { position: absolute; transform: translateX(-50%); }
+.forest-legend { display: flex; flex-wrap: wrap; gap: 6px 18px; font-size: 11px; color: #4a5f52; margin-top: 10px; align-items: center; }
+.forest-legend i { display: inline-block; width: 8px; height: 8px; margin-right: 6px; vertical-align: middle; }
+.forest-legend .key-in { background: var(--series-in); border-radius: 50%; }
+.forest-legend .key-out { background: var(--series-out); transform: rotate(45deg) scale(.9); }
+.forest-legend .key-diff { background: #6f8378; border-radius: 50%; }
+.forest-legend .key-range { width: 16px; height: 2px; background: #6f8378; }
+.forest-legend .key-null { width: 0; height: 12px; border-left: 1px dashed #9fb0a5; }
+.forest-legend .forest-note { color: var(--ink-muted); }
+
+/* Report card meters */
+.responder-layout { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(16rem, 1fr); gap: 16px; align-items: start; }
+.responder-meter { display: grid; grid-template-columns: minmax(8rem, 11rem) minmax(0, 1fr) 5.5rem; align-items: center; gap: 12px; font-size: 12px; margin: 10px 0; }
+.meter-track { height: 8px; background: #e5efe8; border-radius: 4px; overflow: hidden; }
+.meter-track i { display: block; height: 100%; background: var(--series-in); border-radius: 4px; }
+.responder-meter b { font-size: 12px; color: #2a4533; }
+.responder-meter.is-untested .meter-track { background: repeating-linear-gradient(135deg, #eef2ef 0 4px, #e1e8e3 4px 8px); }
+.responder-meter.is-untested b { color: var(--ink-muted); font-weight: 600; }
+.responder-agent { background: #f3f7f4; overflow-wrap: anywhere; }
+.responder-agent p { font-size: 13px; }
+
+.responder-scores { width: 100%; min-width: 40rem; font-size: .85rem; }
+.responder-scores td, .responder-scores th { padding: .6rem; text-align: left; border-bottom: 1px solid var(--grid); }
+.responder-scores small { display: block; color: var(--ink-muted); }
+.responder-page details > summary { cursor: pointer; font-size: 12px; font-weight: 600; color: #4b7256; margin-top: 8px; }
+
+@media (max-width: 900px) {
+  .responder-tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .responder-layout { grid-template-columns: 1fr; }
+  .forest-row { grid-template-columns: minmax(0, 1fr); gap: 4px; padding: 6px 0; }
+  .forest-row > span:empty { display: none; }
+  .responder-controls .badge { margin-left: 0; }
+  .responder-meter { grid-template-columns: minmax(0, 1fr) auto; gap: 4px 12px; }
+  .responder-meter .meter-track { grid-column: 1 / -1; grid-row: 2; }
+}
+.forest-row .badge { white-space: normal; line-height: 1.3; }
