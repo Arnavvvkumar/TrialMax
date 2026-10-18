@@ -5,6 +5,7 @@ import pytest
 
 from app import config, llm, responder_agent as agent
 from app.responder_evidence import read_cases
+from app.responder_claims import template_rationale
 
 
 @pytest.fixture
@@ -13,8 +14,8 @@ def evidence():
 
 
 def response(**changes):
-    return json.dumps(dict(flag=None, direction=None, confidence='low',
-                          rationale='Multiplicity limits evidence; a researcher must decide.', **changes))
+    return json.dumps(dict({'flag':None,'direction':None,'confidence':'low',
+                          'rationale':'Multiplicity limits evidence; a researcher must decide.'}, **changes))
 
 
 def test_payload_is_whitelisted_and_blind_to_reference_labels(evidence):
@@ -25,7 +26,8 @@ def test_payload_is_whitelisted_and_blind_to_reference_labels(evidence):
         encoded = json.dumps(payload)
         for forbidden in ['truth', 'planted', 'SECRET', 'patient_rows', 'case_id', 'any_significant']:
             assert forbidden not in encoded
-        assert set(payload) == {'trial', 'treatment', 'control', 'endpoint', 'prompt_variant', 'evidence_note', 'subgroups'}
+        assert set(payload) == {'trial', 'treatment', 'control', 'endpoint', 'prompt_variant', 'evidence_note', 'subgroups',
+                                'multiplicity_note','underpowered_policy','rationale_options'}
         if variant == 'names_only':
             assert all(set(row) == {'id', 'label', 'n'} for row in payload['subgroups'])
         else:
@@ -52,7 +54,8 @@ def test_invalid_output_becomes_safe_null(monkeypatch, evidence, raw):
     call = Mock(return_value=raw); monkeypatch.setattr(llm, 'call_model', call)
     result = agent.run_agent(evidence, use_cache=False)
     assert result.flag is result.direction is None
-    assert result.confidence == 'low' and result.rationale == '' and result.invalid
+    assert result.confidence == 'low' and result.rationale == template_rationale(agent.aggregate_payload(evidence))
+    assert result.used_template and result.source == 'template' and not result.invalid
     assert call.call_count == 1
     assert client.with_options.call_args.kwargs['max_retries'] == 0
     assert client.with_options.call_args.kwargs['timeout'] <= 15
@@ -63,7 +66,8 @@ def test_valid_output_is_cached_without_another_call(monkeypatch, tmp_path, evid
     monkeypatch.setattr(config, 'llm_configured', lambda: True)
     client = Mock(); client.with_options.return_value = client
     monkeypatch.setattr(llm, '_client', lambda: client)
-    call = Mock(return_value=response()); monkeypatch.setattr(llm, 'call_model', call)
+    raw = response(rationale=template_rationale(agent.aggregate_payload(evidence)))
+    call = Mock(return_value=raw); monkeypatch.setattr(llm, 'call_model', call)
     first = agent.run_agent(evidence)
     assert first == agent.run_agent(evidence)
     assert not first.invalid and call.call_count == 1
@@ -82,9 +86,14 @@ def test_unavailable_or_timeout_is_safe(monkeypatch, evidence):
 
 
 def test_valid_known_flag_and_bad_prompt_variant(evidence):
+    evidence.subgroups[0].interaction_q = .10
+    evidence.subgroups[0].hr_subgroup.hr = .9
+    evidence.subgroups[0].hr_complement.hr = .5
+    evidence.subgroups[0].underpowered = False
+    payload = agent.aggregate_payload(evidence)
     raw = json.dumps(dict(flag=evidence.subgroups[0].id, direction='weaker_benefit', confidence='low',
-                          rationale='Multiplicity considered; a researcher must decide.'))
-    assert agent.validate_suggestion(raw, agent.aggregate_payload(evidence)).flag == evidence.subgroups[0].id
+                          rationale=template_rationale(payload,evidence.subgroups[0].id,'weaker_benefit')))
+    assert agent.validate_suggestion(raw,payload).flag == evidence.subgroups[0].id
     with pytest.raises(ValueError): agent.aggregate_payload(evidence, 'truth')
 
 

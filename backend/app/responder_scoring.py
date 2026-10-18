@@ -3,6 +3,11 @@ import json
 import math
 import re
 
+try:  # Also shipped as two pure modules in the hosted scorer image.
+    from .responder_claims import claim_errors
+except ImportError:
+    from responder_claims import claim_errors
+
 NUMBER = re.compile(r'(?<![\w.])[-+]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][-+]?\d+)?')
 
 
@@ -12,7 +17,7 @@ def parsed_output(raw):
         if not isinstance(value,dict) or value.get('invalid'):
             return None
         if not {'flag','direction','confidence','rationale'} <= set(value): return None
-        if set(value) - {'flag','direction','confidence','rationale','invalid','source','raw_output'}:
+        if set(value) - {'flag','direction','confidence','rationale','invalid','source','raw_output','used_template','claim_issues'}:
             return None
         if value.get('flag') is not None and not isinstance(value['flag'],str): return None
         if value.get('confidence') not in ['low','medium','high']: return None
@@ -54,5 +59,12 @@ def score_metric(name, output, *, truth_flag=None, truth_direction='no_reliable_
         value = flag == target and parsed['direction']=='weaker_benefit'
         metadata['planted_detectable'] = planted_detectable
     elif name == 'number_fidelity': value = number_fidelity(parsed['rationale'],input_table)
+    elif name == 'claim_consistency':
+        try:
+            payload = json.loads(input_table) if isinstance(input_table,str) else input_table
+            errors = claim_errors(parsed,payload)
+        except (ValueError,TypeError,KeyError): errors = ['invalid_input_table']
+        metadata['claim_errors'] = errors
+        value = not errors
     else: raise ValueError('Unknown responder metric')
     return float(value), metadata

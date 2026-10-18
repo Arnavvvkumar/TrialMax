@@ -46,8 +46,12 @@ null output. A significant interaction with HR-in > HR-out is labeled
 `weaker_benefit`; the reverse is `stronger_benefit`; otherwise the label is
 `no_reliable_difference`. This is a deterministic statistical reference, not
 biological truth. A group is marked underpowered when any of its four
-subgroup/complement arm event counts is below 20. Underpower does not force a
-reference label but the agent is instructed to prefer abstention.
+subgroup/complement arm event counts is below 20. The frozen statistical
+reference retains its original label. The API/UI and evaluation policy derive
+a separate decision label: **underpowered means no reliable difference, even if
+BH-significant**. The raw direction is retained as `statistical_direction`;
+q-values and `bh_significant` remain visible. This conservative label does not
+prove equal effects. The snapshot is not rewritten.
 
 Planted variants bootstrap paired time/event observations from controls into
 treated patients of one prespecified subgroup, with fixed seeds. Three balanced
@@ -73,18 +77,30 @@ timeout and `max_retries=0`. It has no tools. Trial names and table contents are
 untrusted data, never instructions.
 
 `names_only` receives subgroup ID, label and n only. `with_stats` also receives
-arm counts/events, HRs/CIs, interaction p/q and underpower flags. A whitelist
+arm counts/events, HRs/CIs, interaction p/q, `bh_significant` and underpower flags.
+Both prompts state Benjamini–Hochberg significance at q≤0.10 and the underpower
+policy. Names-only receives no subgroup effect statistics. A whitelist
 excludes reference labels, expected flags/directions, planted/original status,
 detectability and patient-level rows from both prompts. The response is strict
 Pydantic JSON with no extra keys, one known subgroup or null, a paired direction,
 confidence and a rationale of at most 400 characters. Numeric claims must occur
 in the input within absolute 0.01 or 1% relative tolerance. Rationales must
-mention multiplicity and researcher review. Invalid output, timeout or absent
-configuration returns a low-confidence null with `invalid=true` and an empty
-rationale. Only validated successes are cached, keyed by model, prompt and input.
+mention multiplicity and researcher review. `responder_claims.py` rejects flags
+on underpowered/non-significant groups and directions inconsistent with the HRs.
+It detects specific blanket denials of BH significance and named direction
+contradictions. **Free prose is never silently assumed verified:** displayed
+rationales must match an approved context-specific template. The model must copy
+the applicable supplied rationale option verbatim. Invalid schema, numbers or
+claims produce a low-confidence null with a plain verified template;
+`used_template`, reasons and the raw response are retained. Provider failure or
+absent configuration still returns an unavailable/invalid null. Verified
+responses and fallbacks are cached by policy version, model, prompt and input,
+and rechecked when read.
 
 The numeric check verifies copying, not clinical interpretation or whether a
-number was associated with the correct subgroup. Human review remains necessary.
+number was associated with the correct subgroup. The claim gate covers aggregate
+policy and approved wording, not arbitrary medical facts or clinical validity.
+Human review remains necessary.
 Public trial-level aggregate tables go to the model; individual outcome rows do
 not. Reference labels go to evaluation scorers separately, never the task's
 model prompt.
@@ -93,7 +109,7 @@ model prompt.
 
 There are four evaluations: names-only/with-statistics × originals/planted,
 with 3 originals or 9 variants in each group. The expected exclusion flag is the
-BH-significant weaker-benefit subgroup with the smallest q (ID breaks ties), or
+BH-significant, non-underpowered weaker-benefit subgroup with the smallest q (ID breaks ties), or
 null. A detectable planted target takes precedence. Significant stronger-benefit
 groups do not become exclusion candidates.
 
@@ -111,6 +127,15 @@ Metrics use the same pure functions locally and in Chalk:
   denominator; it is not a sensitivity estimate on confirmed positive cases.
 - `number_fidelity`: every rationale number appears in the input table within
   the tolerance above. A number-free rationale passes this check.
+- `claim_consistency`: displayed flag/direction and rationale meet the aggregate
+  policy and approved wording, with rejection reasons in metadata. This is not
+  a general natural-language truth test.
+- `raw_claim_consistency`: the same check on new AI output before the guard.
+  `legacy_claim_consistency` checks archived prior responses and original inputs
+  retrospectively. **Unverified free prose is not a demonstrated false claim.**
+  Old responses were not prompted to use the new template contract: their zero
+  template-verification score is not a fair measure of factual accuracy. The
+  separate audit counts concrete contradictions.
 - Chalk's built-in `json_valid`: checks the raw model output, including malformed
   outputs rejected by the agent. This is syntactic validity, not schema validity.
 
@@ -133,15 +158,23 @@ credentials. The UI displays completion status, denominators and run IDs;
 completed runs do not establish clinical validity. No numbers are fabricated
 when evaluation/authentication fails.
 
-The completed run IDs are recorded in `chalk_runs.json`. In this snapshot both
-prompt variants produced 100% correct flags on originals and 88.9% on variants;
-number fidelity, null abstention and JSON validity were 100%. The specified
-no-overclaim score was 33.3%/44.4%, largely reflecting high-confidence null
-responses. Planted recall was 0% (originals N/A). These results demonstrate the
-evaluation plumbing and expose benchmark/model limits, not superior subgroup
-detection. The four groups have tiny denominators and are not independent
-replications: variants reuse the same trials, and identical names-only inputs
-reuse one cached response.
+Completed run IDs are in `chalk_runs.json`. Prior results/raw responses are
+archived in `chalk_runs.before_claims.json` and
+`local_eval_results.before_claims.json`. `claim_consistency_before_after.json`
+records the audit: the old Veteran explanation denied adjusted significance
+although squamous has q≈0.0728. The new local run has one previous contradiction
+versus zero in 24 new raw and displayed responses. No template fallback was
+needed in this run; the regression test separately proves the guard catches the
+exact old explanation and falls back correctly. Hosted scores include prior,
+raw-new and displayed claim checks.
+
+The cautious policy makes every expected exclusion flag in this snapshot null.
+100% flag accuracy therefore does not show positive-case detection: always
+abstaining also achieves it. Flag accuracy before and after the policy change
+is not directly comparable. Planted recall remains 0% (originals N/A).
+High-confidence abstentions can still fail the unchanged no-overclaim scorer.
+The groups have tiny denominators and are not independent replications:
+variants reuse trials, and identical names-only inputs reuse a response.
 
 ## Rerun Part 2
 

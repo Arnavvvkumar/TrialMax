@@ -1,4 +1,15 @@
-import type { ResponderEffect, ResponderResponse } from './responderTypes.ts'
+import type { ResponderEffect, ResponderResponse, ResponderSubgroup } from './responderTypes.ts'
+
+export function subgroupEvidenceLabel(row: Pick<ResponderSubgroup,'underpowered'|'truth_label'>) {
+  return row.underpowered ? 'no reliable difference' : row.truth_label.replaceAll('_', ' ')
+}
+
+export const responderMetrics = [
+  ['correct_flag','Correct flag'], ['no_overclaim','No overclaim'], ['abstains_when_null','Null abstention'],
+  ['planted_recall','Planted recall'], ['number_fidelity','Number fidelity'], ['json_valid','Raw JSON valid'],
+  ['legacy_claim_consistency','Prior prose verified'], ['raw_claim_consistency','New AI prose verified'],
+  ['claim_consistency','Displayed claims verified'],
+] as const
 
 export function effectLabel(effect: ResponderEffect) {
   return effect.hr === null || effect.ci_low === null || effect.ci_high === null ? 'Not estimable'

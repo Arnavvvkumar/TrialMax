@@ -35,6 +35,7 @@ class SubgroupEvidence(BaseModel):
     bh_significant: bool = False
     underpowered: bool
     truth_label: Direction = 'no_reliable_difference'
+    statistical_direction: Direction | None = None
 
 
 class TrialEvidence(BaseModel):
@@ -72,8 +73,10 @@ class Suggestion(BaseModel):
 
 class AgentOutput(Suggestion):
     invalid: bool = False
-    source: Literal['chalk', 'unavailable', 'invalid'] = 'chalk'
+    source: Literal['chalk', 'template', 'unavailable', 'invalid'] = 'chalk'
     raw_output: str = ''
+    used_template: bool = False
+    claim_issues: list[str] = Field(default_factory=list)
 
 
 class ResponderRequest(BaseModel):

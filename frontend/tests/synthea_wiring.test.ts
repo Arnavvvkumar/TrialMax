@@ -14,6 +14,11 @@ test('Responder evidence has its own tab that works without loading a trial', ()
   assert.ok(responderBranch > -1 && responderBranch < needsAnalysis, 'Responder tab must render before the "load a trial first" gate')
 })
 
+test('historical responder tab hides the synthetic population controls and header badge', () => {
+  assert.ok(app.includes("{tab !== 'responder' && <Card className=\"population-controls\">"))
+  assert.ok(app.includes("{tab !== 'responder' && <span className=\"demo-pill\">"))
+})
+
 test('population dropdown is built from the API catalog, not hard-coded', () => {
   assert.ok(app.includes('catalog?.options'), 'dropdown must list the options returned by /api/populations')
   assert.ok(!app.includes('<option value="fixed">'), 'hard-coded "fixed" option is back')

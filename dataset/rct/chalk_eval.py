@@ -38,6 +38,7 @@ SCORER_IMAGE = None
 if not os.environ.get('CHALK_REMOTE_FUNCTION'):
     SCORER_IMAGE = (chalkcompute.Image.debian_slim('3.12').pip_install(['chalkcompute==2.13.7'])
         .add_local_file(str(HERE.parents[1]/'backend/app/responder_scoring.py'),'/opt/responder/responder_scoring.py',strategy='copy')
+        .add_local_file(str(HERE.parents[1]/'backend/app/responder_claims.py'),'/opt/responder/responder_claims.py',strategy='copy')
         .env({'PYTHONPATH':'/opt/responder'}))
 
 # Build a remote agent only after a successful ambient-credential probe. Source
@@ -52,7 +53,7 @@ if not os.environ.get('CHALK_REMOTE_FUNCTION') and (HERE/'chalk_probe.json').exi
         from app import config
         AGENT_IMAGE = chalkcompute.Image.debian_slim('3.12').pip_install(
             ['chalkcompute==2.13.7','openai','pydantic>=2,<3','python-dotenv'])
-        for name in ['__init__','config','models','variables','llm','responder_models','responder_scoring','responder_agent']:
+        for name in ['__init__','config','models','variables','llm','responder_models','responder_claims','responder_scoring','responder_agent']:
             AGENT_IMAGE = AGENT_IMAGE.add_local_file(str(HERE.parents[1]/f'backend/app/{name}.py'),f'/opt/responder/app/{name}.py',strategy='copy')
         AGENT_IMAGE = AGENT_IMAGE.env({'LLM_MODEL':config.LLM_MODEL,'CHALK_ENV_ID':config.CHALK_ENV_ID,
                                       'CHALK_BASE_URL':config.CHALK_BASE_URL,'WT_CACHE_DIR':'/tmp/responder-cache'})
@@ -66,7 +67,7 @@ if REMOTE_MODE or os.environ.get('CHALK_REMOTE_FUNCTION'):
         sys.path.insert(0,'/opt/responder')
         from app.responder_agent import run_payload
         output = run_payload(json.loads(input_table),use_cache=False)
-        return output.raw_output if output.raw_output else output.model_dump_json(exclude={'raw_output','source'})
+        return output.model_dump_json()
 
 
 @chalkcompute.function(authenticated=True,image=SCORER_IMAGE)
@@ -124,14 +125,44 @@ def number_fidelity(output: str, input_table: str) -> EvaluationScorerResult:
     return EvaluationScorerResult(score,metadata)
 
 
-valid_json = chalkcompute.scorers.json_valid(name='json-valid',image=SCORER_IMAGE,authenticated=True)
+@chalkcompute.function(authenticated=True,image=SCORER_IMAGE)
+def claim_consistency(output: str, input_table: str) -> EvaluationScorerResult:
+    import sys
+    sys.path.insert(0,'/opt/responder')
+    from responder_scoring import score_metric
+    from chalkcompute import EvaluationScorerResult
+    score,metadata = score_metric('claim_consistency',output,input_table=input_table)
+    return EvaluationScorerResult(score,metadata)
+
+
+@chalkcompute.function(authenticated=True,image=SCORER_IMAGE)
+def raw_claim_consistency(raw_agent_output: str, input_table: str) -> EvaluationScorerResult:
+    import sys
+    sys.path.insert(0,'/opt/responder')
+    from responder_scoring import score_metric
+    from chalkcompute import EvaluationScorerResult
+    score,metadata = score_metric('claim_consistency',raw_agent_output,input_table=input_table)
+    return EvaluationScorerResult(score,metadata)
+
+
+@chalkcompute.function(authenticated=True,image=SCORER_IMAGE)
+def legacy_claim_consistency(legacy_agent_output: str, legacy_input_table: str) -> EvaluationScorerResult:
+    import sys
+    sys.path.insert(0,'/opt/responder')
+    from responder_scoring import score_metric
+    from chalkcompute import EvaluationScorerResult
+    score,metadata = score_metric('claim_consistency',legacy_agent_output,input_table=legacy_input_table)
+    return EvaluationScorerResult(score,metadata)
+
+
+valid_json = chalkcompute.scorers.json_valid(name='json-valid',inputs=['raw_agent_output'],image=SCORER_IMAGE,authenticated=True)
 
 
 def main():
     import argparse
     from chalk.client import ChalkClient
     from chalk_transport import UploadTransport
-    from eval_common import local_evaluation, record_base
+    from eval_common import local_evaluation, record_base, METRICS
     parser = argparse.ArgumentParser()
     parser.add_argument('--local-only',action='store_true')
     args = parser.parse_args()
@@ -139,7 +170,8 @@ def main():
     local = local_evaluation()
     if args.local_only:
         print('Mode: local agent + local scorers (no hosted validation claimed)'); return
-    record = {**record_base(),'status':'pending','mode':'local_agent_remote_scoring','runs':[]}
+    record = {**record_base(),'status':'pending','mode':'local_agent_remote_scoring','runs':[],
+              'claim_audit':local['claim_audit']}
     stage = 'authentication'
     try:
         environment = os.environ.get('CHALK_ENVIRONMENT')
@@ -167,10 +199,12 @@ def main():
             name = f"responder-{summary['prompt_variant']}-{summary['variant']}"
             stage = 'evaluation creation'
             evaluation = chalkcompute.Evaluation.create(name,dataset=dataset,task=task,
-              scorers=[correct_flag,no_overclaim,abstains_when_null,planted_recall,number_fidelity,valid_json],chalk_client=client)
+              scorers=[correct_flag,no_overclaim,abstains_when_null,planted_recall,number_fidelity,
+                       claim_consistency,raw_claim_consistency,legacy_claim_consistency,valid_json],chalk_client=client)
             stage = 'evaluation run'
             run = evaluation.run(metadata={'prompt_variant':summary['prompt_variant'],'variant':summary['variant'],
-              'mode':record['mode'],'ground_truth_sha256':record['ground_truth_sha256'],'model':record['model']})
+              'mode':record['mode'],'ground_truth_sha256':record['ground_truth_sha256'],'model':record['model'],
+              'policy_version':record['policy_version']})
             print('Started',name,run.id,flush=True)
             run = run.wait(timeout=240,poll_interval=3)
             # Read actual scorer outputs: never label local-only metrics as hosted results.
@@ -179,7 +213,7 @@ def main():
             if any(value for row in scored for key,value in row.items() if key.endswith('_error')):
                 raise RuntimeError('Hosted task/scorer errors; scores must not be reported as validated')
             scores,denominators = {},{}
-            for index,metric in enumerate(['correct_flag','no_overclaim','abstains_when_null','planted_recall','number_fidelity','json_valid']):
+            for index,metric in enumerate([*METRICS,'json_valid']):
                 values = []
                 for row in scored:
                     value = row.get(f'{metric}_value',row.get(f"{metric.replace('_','-')}_value",

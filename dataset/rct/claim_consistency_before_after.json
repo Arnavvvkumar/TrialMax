@@ -1,0 +1,31 @@
+{
+  "policy_version": "bh-010-powered-claims-v1",
+  "note": "Legacy responses are rescored retrospectively; unverified free prose is not counted as a proven contradiction. Flag accuracy is not directly comparable after the underpower policy change.",
+  "before": {
+    "n": 24,
+    "contradiction_n": 1,
+    "unverified_n": 24,
+    "contradictions": [
+      {
+        "case_id": "veteran",
+        "prompt_variant": "with_stats",
+        "reasons": [
+          "denied_existing_bh_significance"
+        ]
+      }
+    ]
+  },
+  "raw_after": {
+    "n": 24,
+    "contradiction_n": 0,
+    "unverified_n": 0,
+    "contradictions": []
+  },
+  "guarded_after": {
+    "n": 24,
+    "contradiction_n": 0,
+    "unverified_n": 0,
+    "contradictions": []
+  },
+  "template_fallback_n": 0
+}

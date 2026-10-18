@@ -1,13 +1,16 @@
 {
   "ground_truth_sha256": "bdd5d804a00309b6475dba46607b8350be0c3912ef29909af2858ccfb73eef26",
   "model": "openai/gpt-6.1-sol",
-  "prompt_sha256": "0235c241047662c49b9f17d38887b16b107fb5a3c189da44e9ae035651ce0264",
-  "recorded_at": "2026-10-18T03:57:40.433368+00:00",
+  "prompt_sha256": "1c3d2e9ff1995c36cef5f6acd7c701c6e501e5b0ed97fd3d040795ab420c6b8d",
+  "policy_version": "bh-010-powered-claims-v1",
+  "recorded_at": "2026-10-18T04:42:38.269528+00:00",
   "limitations": [
     "Exploratory statistical reference labels, not clinical truth; not protocol recommendations.",
     "Undetectable planted targets are retained. Strict planted recall alone cannot establish statistical sensitivity.",
     "No-significant-interaction does not establish equal treatment effects.",
-    "Partly non-randomized treatment assignment: weaker evidence (GBSG)."
+    "Partly non-randomized treatment assignment: weaker evidence (GBSG).",
+    "Underpowered groups retain statistical significance but their decision label is no reliable difference.",
+    "Claim consistency verifies bounded templates and aggregate policy; it is not a general clinical fact checker."
   ],
   "status": "complete",
   "mode": "local_agent_remote_scoring",
@@ -18,10 +21,13 @@
       "n": 3,
       "scores": {
         "correct_flag": 1.0,
-        "no_overclaim": 0.3333333333333333,
+        "no_overclaim": 1.0,
         "abstains_when_null": 1.0,
         "planted_recall": null,
         "number_fidelity": 1.0,
+        "claim_consistency": 1.0,
+        "raw_claim_consistency": 1.0,
+        "legacy_claim_consistency": 0.0,
         "json_valid": 1.0
       },
       "denominators": {
@@ -30,11 +36,14 @@
         "abstains_when_null": 2,
         "planted_recall": 0,
         "number_fidelity": 3,
+        "claim_consistency": 3,
+        "raw_claim_consistency": 3,
+        "legacy_claim_consistency": 3,
         "json_valid": 3
       },
       "detectable_planted_n": 0,
-      "evaluation_id": "cmvdaoqks0dkv01y5mynvlcli",
-      "run_id": "2d63ccee-c6a4-4618-b7cd-4aaf1f7a105d",
+      "evaluation_id": "cmvdcbcn00ecw013ewjqb1tao",
+      "run_id": "739fbd01-161d-43cf-94c2-ace5abc3c9b0",
       "status": "EvaluationRunStatus.SUCCEEDED"
     },
     {
@@ -42,11 +51,14 @@
       "variant": "planted",
       "n": 9,
       "scores": {
-        "correct_flag": 0.8888888888888888,
-        "no_overclaim": 0.4444444444444444,
+        "correct_flag": 1.0,
+        "no_overclaim": 1.0,
         "abstains_when_null": 1.0,
         "planted_recall": 0.0,
         "number_fidelity": 1.0,
+        "claim_consistency": 1.0,
+        "raw_claim_consistency": 1.0,
+        "legacy_claim_consistency": 0.0,
         "json_valid": 1.0
       },
       "denominators": {
@@ -55,11 +67,14 @@
         "abstains_when_null": 6,
         "planted_recall": 9,
         "number_fidelity": 9,
+        "claim_consistency": 9,
+        "raw_claim_consistency": 9,
+        "legacy_claim_consistency": 9,
         "json_valid": 9
       },
       "detectable_planted_n": 0,
-      "evaluation_id": "cmvdap4zd0dlh01y5pbgp9xs4",
-      "run_id": "4431c23e-f638-48a3-b9f1-a0491fc2cbcf",
+      "evaluation_id": "cmvdcbqtz0edy014wsuh1r2ww",
+      "run_id": "debb5ec8-dc7a-4dbf-9bef-dd425669a6ea",
       "status": "EvaluationRunStatus.SUCCEEDED"
     },
     {
@@ -68,10 +83,13 @@
       "n": 3,
       "scores": {
         "correct_flag": 1.0,
-        "no_overclaim": 0.3333333333333333,
+        "no_overclaim": 0.0,
         "abstains_when_null": 1.0,
         "planted_recall": null,
         "number_fidelity": 1.0,
+        "claim_consistency": 1.0,
+        "raw_claim_consistency": 1.0,
+        "legacy_claim_consistency": 0.0,
         "json_valid": 1.0
       },
       "denominators": {
@@ -80,11 +98,14 @@
         "abstains_when_null": 2,
         "planted_recall": 0,
         "number_fidelity": 3,
+        "claim_consistency": 3,
+        "raw_claim_consistency": 3,
+        "legacy_claim_consistency": 3,
         "json_valid": 3
       },
       "detectable_planted_n": 0,
-      "evaluation_id": "cmvdapjlm0dlq01y5f5vv0zx2",
-      "run_id": "1f94cf93-45b6-4f6d-9f86-d594e6d8eb26",
+      "evaluation_id": "cmvdcc5bi0ege01y5ut6t441r",
+      "run_id": "97ccdbe7-776d-4120-a191-c3deccca7dfb",
       "status": "EvaluationRunStatus.SUCCEEDED"
     },
     {
@@ -92,11 +113,14 @@
       "variant": "planted",
       "n": 9,
       "scores": {
-        "correct_flag": 0.8888888888888888,
-        "no_overclaim": 0.4444444444444444,
+        "correct_flag": 1.0,
+        "no_overclaim": 0.0,
         "abstains_when_null": 1.0,
         "planted_recall": 0.0,
         "number_fidelity": 1.0,
+        "claim_consistency": 1.0,
+        "raw_claim_consistency": 1.0,
+        "legacy_claim_consistency": 0.0,
         "json_valid": 1.0
       },
       "denominators": {
@@ -105,14 +129,48 @@
         "abstains_when_null": 6,
         "planted_recall": 9,
         "number_fidelity": 9,
+        "claim_consistency": 9,
+        "raw_claim_consistency": 9,
+        "legacy_claim_consistency": 9,
         "json_valid": 9
       },
       "detectable_planted_n": 0,
-      "evaluation_id": "cmvdapxck0djx014wp8v5rcgw",
-      "run_id": "d2d74359-8a79-4ad8-831a-7ead1beea3fc",
+      "evaluation_id": "cmvdccm470eek014w59nl1ncd",
+      "run_id": "ab0c85ef-1425-40a0-80e6-976340451e37",
       "status": "EvaluationRunStatus.SUCCEEDED"
     }
   ],
+  "claim_audit": {
+    "policy_version": "bh-010-powered-claims-v1",
+    "note": "Legacy responses are rescored retrospectively; unverified free prose is not counted as a proven contradiction. Flag accuracy is not directly comparable after the underpower policy change.",
+    "before": {
+      "n": 24,
+      "contradiction_n": 1,
+      "unverified_n": 24,
+      "contradictions": [
+        {
+          "case_id": "veteran",
+          "prompt_variant": "with_stats",
+          "reasons": [
+            "denied_existing_bh_significance"
+          ]
+        }
+      ]
+    },
+    "raw_after": {
+      "n": 24,
+      "contradiction_n": 0,
+      "unverified_n": 0,
+      "contradictions": []
+    },
+    "guarded_after": {
+      "n": 24,
+      "contradiction_n": 0,
+      "unverified_n": 0,
+      "contradictions": []
+    },
+    "template_fallback_n": 0
+  },
   "environment": "hmlsd28bca6e",
   "gateway_probe": {
     "gateway_callable": false,

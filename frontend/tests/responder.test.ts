@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { effectLabel, evidenceSuggestion, forestInterval, hostedResponderValidation } from '../src/responder.ts'
+import { effectLabel, evidenceSuggestion, forestInterval, hostedResponderValidation, subgroupEvidenceLabel, responderMetrics } from '../src/responder.ts'
 import type { ResponderEffect, ResponderResponse } from '../src/responderTypes.ts'
 
 const effect = (hr: number | null, low: number | null, high: number | null): ResponderEffect => ({hr,ci_low:low,ci_high:high,p:null,status:'ok'})
@@ -36,4 +36,16 @@ test('agent display distinguishes abstention, invalid output and subgroup direct
   assert.match(evidenceSuggestion(data), /not an exclusion candidate/)
   data.suggestion.flag = 'UNKNOWN'
   assert.match(evidenceSuggestion(data), /no suggestion is usable/)
+})
+
+test('underpowered subgroups always have the conservative decision label', () => {
+  assert.equal(subgroupEvidenceLabel({underpowered:true,truth_label:'stronger_benefit'}),'no reliable difference')
+  assert.equal(subgroupEvidenceLabel({underpowered:true,truth_label:'weaker_benefit'}),'no reliable difference')
+  assert.equal(subgroupEvidenceLabel({underpowered:false,truth_label:'stronger_benefit'}),'stronger benefit')
+})
+
+test('claim metrics distinguish prior prose, raw AI output and displayed explanations', () => {
+  assert.ok(responderMetrics.some(([metric])=>metric==='claim_consistency'))
+  assert.ok(responderMetrics.some(([metric])=>metric==='raw_claim_consistency'))
+  assert.ok(responderMetrics.some(([metric])=>metric==='legacy_claim_consistency'))
 })
