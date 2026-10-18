@@ -18,30 +18,32 @@ US_COUNTRY_NAMES = {"united states", "united states of america", "usa", "us"}
 
 class RareReachError(RuntimeError): pass
 
-def _values(value, keys: set[str]) -> list[object]:
-    """Collect values across Orphadata's nested response formats."""
-    if isinstance(value, dict):
-        found = [item for key, item in value.items() if key.lower() in keys]
-        for item in value.values(): found.extend(_values(item, keys))
-        return found
-    if isinstance(value, list): return [item for child in value for item in _values(child, keys)]
-    return []
+def _normalise_term(value: str) -> str:
+    return re.sub(r"[^a-z0-9]+", "", value.casefold())
 
-def lookup_orpha(term: str, client: httpx.Client) -> tuple[str | None, str | None, list[str], str]:
-    """Public name lookup; return no match/unavailable rather than guessing."""
+def lookup_orpha(term: str, client: httpx.Client) -> tuple[str | None, str | None, list[str], str, str]:
+    """Accept only an exact preferred-term or synonym match from one disease record."""
     url = f"{config.ORPHADATA_API_BASE}/rd-cross-referencing/orphacodes/names/{quote(term, safe='')}"
     try:
         response = client.get(url, params={"lang": "en"}, timeout=config.RARE_REACH_TIMEOUT_S)
-        if response.status_code == 404: return None, None, [], "no_match"
+        if response.status_code == 404: return None, None, [], "no_match", f"Orphadata did not return a disease record for '{term}'."
         response.raise_for_status(); payload = response.json()
     except (httpx.HTTPError, ValueError):
-        return None, None, [], "unavailable"
-    codes = _values(payload, {"orphacode", "orpha_code"})
-    names = _values(payload, {"name", "preferredterm", "preferred_term"})
-    synonyms = [str(item) for item in _values(payload, {"synonym", "synonyms"}) if isinstance(item, str)]
-    code = str(codes[0]) if codes else None
-    preferred = str(names[0]) if names else None
-    return code, preferred, list(dict.fromkeys(synonyms))[:20], "matched" if code else "no_match"
+        return None, None, [], "unavailable", "Orphadata could not be reached, so rare-disease status could not be verified."
+    results = payload.get("data", {}).get("results") if isinstance(payload, dict) else None
+    record = results[0] if isinstance(results, list) and results else results
+    if not isinstance(record, dict):
+        return None, None, [], "no_match", f"Orphadata returned no usable disease record for '{term}'."
+    code = record.get("ORPHAcode")
+    preferred = record.get("Preferred term")
+    raw_synonyms = record.get("Synonym") or []
+    synonyms = [item for item in raw_synonyms if isinstance(item, str)] if isinstance(raw_synonyms, list) else [raw_synonyms] if isinstance(raw_synonyms, str) else []
+    if not isinstance(code, (str, int)) or not isinstance(preferred, str):
+        return None, None, [], "no_match", f"Orphadata returned an incomplete disease record for '{term}'."
+    candidate_terms = [preferred, *synonyms]
+    if _normalise_term(term) not in {_normalise_term(candidate) for candidate in candidate_terms}:
+        return None, None, [], "no_match", f"Orphadata returned the rare-disease candidate '{preferred}', but it does not exactly match the trial condition '{term}'. RareReach did not treat it as a confirmation."
+    return str(code), preferred, list(dict.fromkeys(synonyms))[:20], "matched", f"Orphadata returned an exact rare-disease match for '{term}'."
 
 def _nord_candidate_url(term: str | None) -> str | None:
     if not term: return None
@@ -81,16 +83,16 @@ def build_rare_reach(raw_nct_id: str, rules: list[Rule], trial: TrialInfo | None
     owned = client is None; client = client or httpx.Client()
     try:
         term = conditions[0] if conditions else (trial.title or "")
-        code, preferred, synonyms, status = lookup_orpha(term, client) if term else (None, None, [], "no_match")
+        code, preferred, synonyms, status, verification_reason = lookup_orpha(term, client) if term else (None, None, [], "no_match", "The trial did not provide a condition to verify.")
         is_rare_disease = status == "matched" and code is not None
         hospitals = find_hospitals(trial, client) if is_rare_disease else []
-    except RareReachError: hospitals = []; code, preferred, synonyms, status = None, None, [], "unavailable"
+    except RareReachError: hospitals = []; code, preferred, synonyms, status, verification_reason = None, None, [], "unavailable", "ClinicalTrials.gov site research was unavailable."
     finally:
         if owned: client.close()
     is_rare_disease = status == "matched" and code is not None
     if not is_rare_disease:
-        message = "Rare-disease status could not be confirmed because Orphadata was unavailable. RareReach did not search sites or provide outreach recommendations." if status == "unavailable" else f"Orphadata did not return an ORPHAcode for '{term}'. ORPHAcodes are Orphanet's identifiers for rare diseases, so RareReach did not classify this trial condition as rare."
+        message = f"{verification_reason} ORPHAcodes are Orphanet's identifiers for rare diseases, so RareReach stopped before site or outreach research."
         return RareReachResponse(trial=trial, query_terms=conditions or ([trial.title] if trial.title else []), is_rare_disease=False, rare_disease_message=message, orpha_code=None, orpha_status=status, hospitals=[], strategies=[], sources=[{"name":"ClinicalTrials.gov","url":STUDY_URL.format(nct_id=nct),"access":"live"},{"name":"Orphadata terminology API","url":ORPHANET_URL,"access":"live" if status != "unavailable" else "unavailable"}], warnings=[message])
     strategies = [RecruitmentStrategy(rule_id=r.id, criterion=r.clause or r.text, safety_sensitive=r.safety_critical or r.purpose == "safety", outreach="Keep this criterion and investigate the public sites, Orphanet directories, and NORD resource below.") for r in rules if r.simulatable or r.safety_critical][:12]
     warnings = ["Historical trial counts are not patient counts, capacity, expertise, availability, or partnership evidence.", "No private patient records or registry access were used.", "Use the Orphanet Expert Centres Directory with the returned ORPHAcode to research centres and networks. RareReach does not automatically retrieve or rank directory listings."]
-    return RareReachResponse(trial=trial, query_terms=conditions or ([trial.title] if trial.title else []), is_rare_disease=True, rare_disease_message="Orphadata returned an ORPHAcode match. RareReach public recruitment research is available for this condition.", orpha_code=code, orpha_status=status, orpha_preferred_name=preferred, orpha_synonyms=synonyms, hospitals=hospitals, nord_url=NORD_URL, nord_candidate_url=_nord_candidate_url(preferred or (conditions[0] if conditions else None)), strategies=strategies, sources=[{"name":"ClinicalTrials.gov","url":STUDY_URL.format(nct_id=nct),"access":"live"},{"name":"Orphadata terminology API","url":ORPHANET_URL,"access":"live"},{"name":"Orphanet Expert Centres Directory","url":ORPHANET_CENTRES_URL,"access":"public_manual_search"},{"name":"Orphanet Networks Directory","url":ORPHANET_NETWORKS_URL,"access":"public_manual_search"},{"name":"NORD","url":NORD_URL,"access":"public_link"}], warnings=warnings)
+    return RareReachResponse(trial=trial, query_terms=conditions or ([trial.title] if trial.title else []), is_rare_disease=True, rare_disease_message=f"{verification_reason} RareReach public recruitment research is available for this condition.", orpha_code=code, orpha_status=status, orpha_preferred_name=preferred, orpha_synonyms=synonyms, hospitals=hospitals, nord_url=NORD_URL, nord_candidate_url=_nord_candidate_url(preferred or (conditions[0] if conditions else None)), strategies=strategies, sources=[{"name":"ClinicalTrials.gov","url":STUDY_URL.format(nct_id=nct),"access":"live"},{"name":"Orphadata terminology API","url":ORPHANET_URL,"access":"live"},{"name":"Orphanet Expert Centres Directory","url":ORPHANET_CENTRES_URL,"access":"public_manual_search"},{"name":"Orphanet Networks Directory","url":ORPHANET_NETWORKS_URL,"access":"public_manual_search"},{"name":"NORD","url":NORD_URL,"access":"public_link"}], warnings=warnings)

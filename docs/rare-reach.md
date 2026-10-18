@@ -11,7 +11,7 @@ The public Orphadata name lookup resolves a trial condition to an ORPHAcode, pre
 ## Acceptance criteria
 
 - `POST /api/rare-reach` accepts an NCT ID and parsed rules, and returns source links and warnings.
-- No ORPHAcode match or an unavailable terminology lookup stops RareReach before site, NORD, Orphanet-directory, or outreach results are returned.
+- No exact preferred-term/synonym ORPHAcode match, or an unavailable terminology lookup, stops RareReach before site, NORD, Orphanet-directory, or outreach results are returned. A broad condition must not be treated as confirmation of a differently named rare subtype.
 - Each hospital is a United States site with one or more matching public NCT IDs; its count is explicitly historical trial activity, never patient volume or availability.
 - No patient data, registry data, or recruitment partnership is accessed or claimed.
 - Orphadata provides terminology matches when available; Orphanet centres/networks and NORD are source-linked for public manual research.
