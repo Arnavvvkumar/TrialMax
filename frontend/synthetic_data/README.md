@@ -1,8 +1,8 @@
-# CliNova synthetic cohort v1
+# TrialMax synthetic cohort v1
 
 **Entirely synthetic. Not observed patient data, not Synthea output, and not a representative clinical cohort.**
 
-This is a fixed 500-person *fictional non-small cell lung cancer (NSCLC) prescreening cohort* for functional testing of the CliNova eligibility simulator. No real records or identifiable patient data are used. Values and distributions are manually chosen for an interactive demo and must not be cited as disease prevalence, treatment safety, actual enrollment probability, or actual recruitment performance.
+This is a fixed 500-person *fictional non-small cell lung cancer (NSCLC) prescreening cohort* for functional testing of the TrialMax eligibility simulator. No real records or identifiable patient data are used. Values and distributions are manually chosen for an interactive demo and must not be cited as disease prevalence, treatment safety, actual enrollment probability, or actual recruitment performance.
 
 ## Files
 - `patients.json`: application-ready records with JSON null for missing data.

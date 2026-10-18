@@ -45,7 +45,7 @@ The headline, rate and comparisons use `modeled_eligible_n`/`modeled_eligible_pc
 
 Registry lookups start with generated exploration for broader field coverage; the user can explicitly select the fixed cohort. The app warns when the fixed NSCLC cohort is not a verified disease match, and discloses that even a shared disease label or a generated population does not establish representativeness.
 
-Changing the input, population mode, generated size, seed, or AI setting clears the baseline, draft comparison, and review decisions. Comparisons reuse exactly the same cohort. Safety-sensitive edits require a rationale before local acceptance; acceptance records a researcher decision and does not approve clinical safety or change the source protocol. Review records can be downloaded as JSON. Decisions are session-only; refresh clears them. A mix of accepted/rejected edits needs a fresh combined simulation before using its counts.
+Changing the input, population mode, generated size, seed, or AI setting clears the baseline, draft comparison, and review decisions. Comparisons reuse exactly the same cohort. Safety-sensitive edits require a rationale before local acceptance; acceptance records a researcher decision and does not approve clinical safety or change the source protocol. After all changes are reviewed, the Review page can print a concise decision brief that researchers can save as a PDF. Decisions are session-only; refresh clears them. A mix of accepted/rejected edits needs a fresh combined simulation before using its counts.
 
 ## API population contract
 
@@ -95,7 +95,7 @@ npm run build
 
 Tests cover parser fixtures, malformed LLM output, semantic validation, planted simulation outcomes, missing data, cohort identity across endpoints, safety comparisons, and frontend stale-state/review behavior. Live provider availability and deployment credentials require separate environment-specific checks.
 
-Chalk feature-store queries, hosted Chalk evals/sandboxes, comparable-trial benchmarks, site ranking and PDF reports are outside this integration. The current Chalk connection is the optional Model Gateway parser fallback; do not present the other capabilities as implemented.
+Chalk feature-store queries, hosted Chalk evals/sandboxes, comparable-trial benchmarks, and automated server-side PDF generation are outside this integration. The Review page provides a browser print-to-PDF decision brief. The current Chalk connection is the optional Model Gateway parser fallback; do not present the other capabilities as implemented.
 
 `GET /api/health` and the source-input view report missing Chalk configuration by variable name, without exposing credentials. A configured gateway is labeled **not verified** until tested; configuration alone does not prove authentication, quota or model availability. **Test live Chalk connection** calls `POST /api/chalk/check`: one fresh, uncached parser request, with retries disabled and a 15-second timeout. Success requires both a response and the expected validated age rule. Authentication, model permission, rate-limit and malformed-output failures are shown explicitly; failed checks disable the AI checkbox until a check passes. No provider error bodies or credentials are returned.
 

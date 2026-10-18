@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useReducer, useRef, useState } from 'react'
 import { ArrowLeft, ArrowRight, BarChart3, CheckCircle2, ChevronRight, CircleHelp, Download, FileCheck2, FlaskConical, Info, LayoutDashboard, Leaf, MapPinned, Menu, RotateCcw, ShieldAlert, ShieldCheck, SlidersHorizontal, X } from 'lucide-react'
 import { analyzeTrial, checkChalk, compareCriteria, getHealth, getPopulations, getRareReach, getVariables } from './simulationService'
-import { changedRules, defaultPopulationMode, emptyWorkspace, notCheckedDetail, reviewedRules, validDraft, workspaceReducer } from './workspace'
+import { changedRules, defaultPopulationMode, emptyWorkspace, notCheckedDetail, validDraft, workspaceReducer } from './workspace'
 import { exampleProtocol } from './exampleProtocol'
 import type { ApiHealth, ChalkCheck, CompareResult, PopulationCatalog, PopulationChoice, PopulationMode, RareReachResponse, ReviewDecision, Rule, SimulationResult, VariableMeta } from './scenarioTypes'
 import type { Workspace } from './workspace'
@@ -133,20 +133,26 @@ function RareReach({ result, loading, onLoad }: { result: RareReachResponse | nu
 
 function Review({ workspace, decide }: { workspace: Workspace; decide: (id: string, decision: ReviewDecision) => void }) {
   const [reasons, setReasons] = useState<Record<string, string>>({})
+  const [printing, setPrinting] = useState(false)
   const comparison = workspace.comparison
+  useEffect(() => {
+    if (!printing) return
+    const timer = window.setTimeout(() => window.print(), 100)
+    const finish = () => setPrinting(false)
+    window.addEventListener('afterprint', finish)
+    return () => { window.clearTimeout(timer); window.removeEventListener('afterprint', finish) }
+  }, [printing])
   if (!comparison || !workspace.analysis) return <Card><div className="empty-view"><FileCheck2 size={28} /><h2>Compare a draft first</h2><p>Researcher review uses the latest comparison for the current cohort.</p></div></Card>
   const allReviewed = comparison.changed_rule_ids.length > 0 && comparison.changed_rule_ids.every(id => workspace.decisions[id])
   const reviewedCount = comparison.changed_rule_ids.filter(id => workspace.decisions[id]).length
-  function download() {
-    const accepted = reviewedRules(workspace)
-    const record = { trial: workspace.analysis!.trial, cohort: comparison!.cohort, baseline_rules: workspace.analysis!.rules,
-      proposed_rules: workspace.draft, decisions: workspace.decisions, accepted_rules: accepted,
-      accepted_rules_match_simulated_draft: JSON.stringify(accepted) === JSON.stringify(workspace.draft),
-      comparison_of_proposed_draft: comparison, disclosure: 'Modeled results require qualified researcher review and are not an approved clinical protocol.' }
-    const url = URL.createObjectURL(new Blob([JSON.stringify(record, null, 2)], { type: 'application/json' }))
-    const anchor = document.createElement('a'); anchor.href = url; anchor.download = 'clinova-review.json'; anchor.click(); setTimeout(() => URL.revokeObjectURL(url), 1000)
-  }
   const modeledDelta = comparison.modeled_eligible_change_pct_points
+  const reviewedChanges = comparison.changed_rule_ids.map(id => {
+    const original = workspace.analysis!.rules.find(rule => rule.id === id)
+    const proposed = workspace.draft.find(rule => rule.id === id)
+    const decision = workspace.decisions[id]
+    return { id, original, proposed, decision, reason: reasons[id] || 'No rationale provided.' }
+  })
+  const statusLabel = (decision: ReviewDecision['decision'] | undefined) => decision === 'accepted' ? 'Accepted' : 'Rejected'
   return <div className="results-stack review-page"><Card className="review-hero"><div><span className="eyebrow">PROTOCOL CHANGE LEDGER</span><h2>Make each decision explicit.</h2><p>Review the modeled impact, record your rationale, and keep the original protocol unchanged.</p></div><div className="review-progress"><strong>{reviewedCount}/{comparison.changed_rule_ids.length}</strong><span>changes reviewed</span><div><i style={{ width: `${100 * reviewedCount / comparison.changed_rule_ids.length}%` }} /></div></div></Card>
     <div className="review-overview"><Card className="review-impact"><span className="stat-label">MODELED ELIGIBILITY</span><strong>{count(comparison.baseline.modeled_eligible_n)} <small>→</small> {count(comparison.proposed.modeled_eligible_n)}</strong><p>{modeledDelta === null ? 'Change unavailable' : `${modeledDelta > 0 ? '+' : ''}${modeledDelta.toFixed(2)} percentage points`}</p><Evidence title="How this was calculated"><p>Both versions were evaluated against the same cohort: <code>{comparison.cohort.id}</code>. This is a modeled estimate, not clinical evidence.</p></Evidence></Card><Card className="review-impact"><span className="stat-label">EXCLUDED PATIENTS</span><strong>{count(comparison.baseline.excluded_n)} <small>→</small> {count(comparison.proposed.excluded_n)}</strong><p>{count(comparison.modeled_newly_eligible_n)} newly passing modeled checks</p></Card><Card className="review-impact"><span className="stat-label">RESEARCHER STATUS</span><strong>{allReviewed ? 'Complete' : 'Pending'}</strong><p>{allReviewed ? 'Ready to export the review record' : 'Review every changed criterion below'}</p></Card></div>
     {comparison.safety_review_rule_ids.length > 0 && <div className="warning-box review-warning"><ShieldAlert size={19} /><div><strong>Safety-sensitive change detected</strong><p>Eligibility counts show population impact, not medical safety. A qualified researcher must review the safety, scientific validity, and generalizability trade-offs.</p></div></div>}
@@ -159,7 +165,18 @@ function Review({ workspace, decide }: { workspace: Workspace; decide: (id: stri
       <label className="review-reason">Researcher rationale {safety ? '(required)' : '(optional)'}<textarea aria-label={`Review reason ${change.rule_id}`} placeholder="Why is this change acceptable or not acceptable?" value={reason} onChange={event => setReasons({ ...reasons, [change.rule_id]: event.target.value })} /></label>
       <div className="ledger-actions"><button className="btn primary" disabled={safety && !reason.trim()} onClick={() => decide(change.rule_id, { decision: 'accepted', reason: reason.trim(), at: new Date().toISOString() })}><CheckCircle2 size={15} /> Accept</button><button className="btn outline" onClick={() => decide(change.rule_id, { decision: 'rejected', reason: reason.trim(), at: new Date().toISOString() })}>Reject</button></div>
     </Card> })}</div>
-    <Card className="review-export"><div><h3>Ready to export?</h3><p>Export preserves the baseline, proposed values, decisions, rationales, and modeled comparison.</p></div><button className="btn primary" disabled={!allReviewed} onClick={download}><Download size={16} /> Download review record</button></Card>
+    <Card className="review-export"><div><h3>Ready to export?</h3><p>Generate a plain-language decision brief with the baseline, selected changes, trade-offs, and modeled impact.</p></div><button className="btn primary" disabled={!allReviewed} onClick={() => setPrinting(true)}><Download size={16} /> Generate PDF report</button></Card>
+    {printing && <article className="print-report" aria-label="TrialMax decision brief">
+      <header className="print-report-header"><div><strong>TrialMax.</strong><span>Clinical trial intelligence</span></div><span>Protocol decision brief</span></header>
+      <h1>Eligibility protocol decision brief</h1>
+      <p className="print-report-subtitle">A concise summary of the reviewed protocol changes and their modeled impact.</p>
+      <div className="print-report-meta"><div><b>Trial</b><span>{workspace.analysis!.trial.nct_id ?? 'Pasted protocol'} · {workspace.analysis!.trial.title ?? 'Title unavailable'}</span></div><div><b>Population</b><span>{comparison.cohort.label} · {comparison.cohort.id}</span></div><div><b>Generated</b><span>{new Date().toLocaleString()}</span></div></div>
+      <section><h2>Executive summary</h2><div className="print-summary-grid"><div><b>Modeled eligibility</b><strong>{count(comparison.baseline.modeled_eligible_n)} → {count(comparison.proposed.modeled_eligible_n)}</strong><span>{modeledDelta === null ? 'Change unavailable' : `${modeledDelta > 0 ? '+' : ''}${modeledDelta.toFixed(2)} percentage points`}</span></div><div><b>Excluded patients</b><strong>{count(comparison.baseline.excluded_n)} → {count(comparison.proposed.excluded_n)}</strong><span>{count(comparison.modeled_newly_eligible_n)} newly passing modeled checks</span></div><div><b>Unknown patients</b><strong>{count(comparison.baseline.modeled_unknown_n)} → {count(comparison.proposed.modeled_unknown_n)}</strong><span>Missing or unavailable data</span></div></div></section>
+      <section><h2>Starting protocol</h2><p>The original protocol contained {workspace.analysis!.rules.length} parsed criteria. The baseline values below are preserved and were used as the comparison reference.</p><ul className="print-rule-list">{workspace.analysis!.rules.map(rule => <li key={rule.id}><b>{rule.id}</b><span>{rule.clause ?? rule.text}</span><em>{ruleValue(rule)}</em></li>)}</ul></section>
+      <section><h2>Reviewed recommendations</h2><table className="print-table"><thead><tr><th>Criterion</th><th>Original</th><th>Proposed</th><th>Decision</th><th>Rationale</th></tr></thead><tbody>{reviewedChanges.map(item => <tr key={item.id}><td><b>{item.id}</b><br />{item.original?.clause ?? item.original?.text ?? 'Unavailable'}</td><td>{item.original ? ruleValue(item.original) : 'Unavailable'}</td><td>{item.proposed ? ruleValue(item.proposed) : 'Unavailable'}</td><td className={item.decision?.decision === 'accepted' ? 'print-accepted' : 'print-rejected'}>{statusLabel(item.decision?.decision)}</td><td>{item.reason}</td></tr>)}</tbody></table></section>
+      <section><h2>Trade-offs and interpretation</h2><ul><li><b>Performance:</b> The proposed draft changes modeled eligibility by {modeledDelta === null ? 'an unavailable amount' : `${modeledDelta > 0 ? '+' : ''}${modeledDelta.toFixed(2)} percentage points`} on the same synthetic cohort.</li><li><b>Recruitment:</b> {count(comparison.modeled_newly_eligible_n)} patients newly pass the modeled checks; this does not predict real enrollment.</li><li><b>Uncertainty:</b> Unknown results represent missing or unavailable data and are not counted as exclusions.</li><li><b>Safety:</b> Any safety-sensitive change remains subject to qualified clinical and scientific review.</li></ul></section>
+      <footer className="print-report-footer">This report is an exploratory, synthetic-cohort analysis. It does not establish treatment safety, protocol approval, patient eligibility, site capacity, or real-world enrollment performance. Qualified researcher review is required.</footer>
+    </article>}
   </div>
 }
 
@@ -248,8 +265,8 @@ export default function App() {
     if (next !== tab && initialHistoryState.current) window.history.pushState({ clinovaTab: next }, '', window.location.href)
     setTab(next); setMobileOpen(false)
   }
-  return <div className="app-shell"><aside className={`sidebar ${mobileOpen ? 'shown' : ''}`}><div className="logo-wrap"><div className="logo-mark"><Leaf size={22} /></div><div><div className="logo-text">CliNova<span className="logo-period">.</span></div><div className="logo-sub">Clinical trial intelligence</div></div><button className="close-mobile" onClick={() => setMobileOpen(false)} aria-label="Close menu"><X size={19} /></button></div><div className="workspace-label">WORKSPACE</div><nav className="nav">{tabs.map(item => <button key={item.id} className={`nav-item ${tab === item.id ? 'active' : ''}`} onClick={() => go(item.id)}><item.icon size={18} />{item.name}</button>)}</nav><div className="side-bottom"><div className="side-footer"><ShieldCheck size={17} /> Researcher review required</div></div></aside>
-    <div className="mobile-shade" onClick={() => setMobileOpen(false)} style={{ display: mobileOpen ? 'block' : 'none' }} /><div className="main-area"><header className="topbar"><button className="menu-btn" onClick={() => setMobileOpen(true)} aria-label="Open navigation"><Menu size={20} /></button><button className="back-button" disabled={tab === 'overview'} onClick={() => window.history.back()} aria-label="Go back"><ArrowLeft size={16} /> Back</button><div className="crumb">CliNova <ChevronRight size={14} /> {tabs.find(item => item.id === tab)?.name}</div><span className="demo-pill"><FlaskConical size={15} /> {mode === 'synthea' ? 'Synthea patients' : mode === 'fixed' ? 'Patient population' : 'Exploration population'}</span></header>
+  return <div className="app-shell"><aside className={`sidebar ${mobileOpen ? 'shown' : ''}`}><div className="logo-wrap"><div className="logo-mark"><Leaf size={22} /></div><div><div className="logo-text">TrialMax<span className="logo-period">.</span></div><div className="logo-sub">Clinical trial intelligence</div></div><button className="close-mobile" onClick={() => setMobileOpen(false)} aria-label="Close menu"><X size={19} /></button></div><div className="workspace-label">WORKSPACE</div><nav className="nav">{tabs.map(item => <button key={item.id} className={`nav-item ${tab === item.id ? 'active' : ''}`} onClick={() => go(item.id)}><item.icon size={18} />{item.name}</button>)}</nav><div className="side-bottom"><div className="side-footer"><ShieldCheck size={17} /> Researcher review required</div></div></aside>
+    <div className="mobile-shade" onClick={() => setMobileOpen(false)} style={{ display: mobileOpen ? 'block' : 'none' }} /><div className="main-area"><header className="topbar"><button className="menu-btn" onClick={() => setMobileOpen(true)} aria-label="Open navigation"><Menu size={20} /></button><button className="back-button" disabled={tab === 'overview'} onClick={() => window.history.back()} aria-label="Go back"><ArrowLeft size={16} /> Back</button><div className="crumb">TrialMax <ChevronRight size={14} /> {tabs.find(item => item.id === tab)?.name}</div><span className="demo-pill"><FlaskConical size={15} /> {mode === 'synthea' ? 'Synthea patients' : mode === 'fixed' ? 'Patient population' : 'Exploration population'}</span></header>
     <main className="content"><div className="page-heading"><div><h1>{tabs.find(item => item.id === tab)?.name}</h1></div></div>
       {catalogError && <div className="error-notice" role="alert">{catalogError}<button className="btn outline" onClick={() => window.location.reload()}>Retry connection</button></div>}{error && <div className="error-notice" role="alert"><ShieldAlert size={18} />{error}</div>}
       {tab === 'overview' && <Card className="welcome-card"><div className="welcome-icon"><FlaskConical size={20} /></div><div><span className="eyebrow">CLINOVA WORKSPACE</span><h2>Understand eligibility before changing the protocol.</h2><p>Load a trial, review each criterion, and compare proposed changes using clear patient-level results.</p></div></Card>}
@@ -269,6 +286,6 @@ export default function App() {
         {tab === 'rare' && (analysis.trial.nct_id ? <RareReach result={rareReach} loading={busy === 'rare'} onLoad={loadRareReach} /> : <Card><div className="empty-view"><MapPinned size={30} /><h2>RareReach needs an NCT ID</h2><p>Load a public ClinicalTrials.gov trial first. Pasted text has no registry condition or public site history to research.</p><button className="btn primary" onClick={() => go('overview')}>Load a trial <ArrowRight size={16} /></button></div></Card>)}
         {tab === 'review' && <Review workspace={workspace} decide={(id, decision) => dispatch({ type: 'decide', id, decision })} />}
       </>}
-    </main><footer className="footer"><div><Leaf size={15} /> CliNova</div><span>Qualified researcher review required</span></footer></div>
+    </main><footer className="footer"><div><Leaf size={15} /> TrialMax</div><span>Qualified researcher review required</span></footer></div>
   </div>
 }

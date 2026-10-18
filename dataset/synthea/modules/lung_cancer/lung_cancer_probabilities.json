@@ -1,5 +1,5 @@
 {
-  "name": "Lung Cancer Probabilities (CliNova enriched cohort)",
+  "name": "Lung Cancer Probabilities (TrialMax enriched cohort)",
   "remarks": [
     "Local override of Synthea's modules/lung_cancer/lung_cancer_probabilities.json.",
     "Synthea's published lifetime risks are multiplied by 4 (capped at 1.0) so a cancer-only cohort",
