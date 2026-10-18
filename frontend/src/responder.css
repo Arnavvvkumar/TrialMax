@@ -84,3 +84,18 @@
   .responder-meter .meter-track { grid-column: 1 / -1; grid-row: 2; }
 }
 .forest-row .badge { white-space: normal; line-height: 1.3; }
+
+/* Optional dark theme (top-bar toggle). Light remains the default. */
+@media screen {
+  html.dark-mode .responder-page { --series-in: #8de4bd; --series-out: #f0af62; --grid: #d8fbe121; --ink-muted: #a9c3b3; }
+  html.dark-mode .responder-controls label, html.dark-mode .forest-legend, html.dark-mode .responder-page details > summary { color: #c4dacd; }
+  html.dark-mode .responder-tile strong, html.dark-mode .forest-label, html.dark-mode .responder-meter b { color: #e7f4eb; }
+  html.dark-mode .responder-tile strong .bad { color: #ffb0a0; }
+  html.dark-mode .forest-point { box-shadow: 0 0 0 2px #0b2930; }
+  html.dark-mode .forest-null, html.dark-mode .forest-legend .key-null { border-left-color: #a9c3b380; }
+  html.dark-mode .forest-overall { border-left-color: #a9c3b355; }
+  html.dark-mode .forest-mark.diff { --mark: #a9c3b3; }
+  html.dark-mode .forest-legend .key-diff, html.dark-mode .forest-legend .key-range { background: #a9c3b3; }
+  html.dark-mode .meter-track { background: #eaffee14; }
+  html.dark-mode .responder-meter.is-untested .meter-track { background: repeating-linear-gradient(135deg, #eaffee10 0 4px, #eaffee1c 4px 8px); }
+}
