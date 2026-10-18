@@ -264,12 +264,14 @@ class RecruitmentStrategy(BaseModel):
 class RareReachResponse(BaseModel):
     trial: TrialInfo
     query_terms: list[str]
+    is_rare_disease: bool
+    rare_disease_message: str
     orpha_code: Optional[str] = None
     orpha_status: str
     orpha_preferred_name: Optional[str] = None
     orpha_synonyms: list[str] = Field(default_factory=list)
     hospitals: list[RecruitmentSite]
-    nord_url: str
+    nord_url: Optional[str] = None
     nord_candidate_url: Optional[str] = None
     strategies: list[RecruitmentStrategy]
     sources: list[dict[str, str]]

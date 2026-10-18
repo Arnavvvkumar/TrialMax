@@ -23,9 +23,13 @@ def test_sites_count_public_trial_records_not_patients():
     assert "not patient volume" in sites[0].explanation
 
 
-def test_response_keeps_orphanet_and_nord_link_only():
+def test_non_rare_condition_stops_before_site_or_outreach_research():
     rule = Rule(id="R1", kind="inclusion", text="Age >= 18", variable="age", operator=">=", value=18, unit="years", simulatable=True)
     response = build_rare_reach("NCT01234567", [rule], trial=trial(), client=Client())
     assert response.orpha_status == "no_match"
+    assert response.is_rare_disease is False
+    assert response.orpha_code is None
+    assert response.hospitals == []
+    assert response.strategies == []
+    assert response.nord_url is None
     assert response.sources[1]["access"] == "live"
-    assert response.strategies[0].outreach.startswith("Keep this criterion")
