@@ -81,3 +81,11 @@ select{color-scheme:dark;background-color:#0d2b30;color:#edf8ef}
 select option{background-color:#0d2b30;color:#edf8ef}
 .rare-site-row{appearance:none;-webkit-appearance:none;background:transparent;color:inherit;cursor:pointer}
 .rare-site-row:focus-visible{outline:2px solid #a9ed91;outline-offset:3px}
+
+/* In-page menu: native select popups choose their own direction and width. */
+.population-dropdown{position:relative;width:100%}
+.population-trigger,.population-menu button{font:inherit}
+.population-trigger{width:100%;min-height:46px;display:flex;align-items:center;justify-content:space-between;gap:12px;padding:11px 13px;border:1px solid #d7ffe126;border-radius:8px;background:#0d2b30;color:#edf8ef;text-align:left}
+.population-trigger:hover{border-color:#a9ed9180}.population-trigger[aria-expanded="true"]{border-color:#a9ed91;box-shadow:0 0 0 3px #a9ed9124}.population-trigger svg{flex:none;transition:transform .16s}.population-trigger[aria-expanded="true"] svg{transform:rotate(180deg)}
+.population-menu{position:absolute;z-index:20;top:calc(100% + 7px);left:0;width:100%;padding:5px;border:1px solid #a9ed9166;border-radius:8px;background:#0d2b30;box-shadow:0 14px 28px #031419aa}
+.population-menu button{display:block;width:100%;min-height:38px;padding:9px 10px;border:0;border-radius:5px;background:transparent;color:#edf8ef;text-align:left}.population-menu button:hover,.population-menu button.selected{background:#a9ed9120;color:#f5fff6}.population-menu button:focus-visible{outline:2px solid #a9ed91;outline-offset:-2px}
