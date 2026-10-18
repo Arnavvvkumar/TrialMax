@@ -1,6 +1,14 @@
 import type { AutopilotResponse, Rule } from './scenarioTypes.ts'
 import type { ThresholdEditAction } from './workspace.ts'
 
+export function autopilotPhase(resultSignature: string | undefined, signature: string, pending: boolean, applied: boolean) {
+  if (pending) return 'searching'
+  if (applied) return 'draft'
+  if (resultSignature === signature) return 'suggestion'
+  if (resultSignature) return 'settings_changed'
+  return 'ready'
+}
+
 // Pure, atomic conversion: no API call, comparison, acceptance, or rule mutation.
 export function planToEditActions(suggestion: Pick<AutopilotResponse, 'cohort_id' | 'plan'>, rules: Rule[], cohortId: string): ThresholdEditAction[] {
   if (suggestion.cohort_id !== cohortId) throw new Error('The cohort changed. Request a new Autopilot suggestion.')

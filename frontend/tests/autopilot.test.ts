@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { planToEditActions } from '../src/autopilot.ts'
+import { autopilotPhase, planToEditActions } from '../src/autopilot.ts'
 import { emptyWorkspace, workspaceReducer } from '../src/workspace.ts'
 import type { AnalyzeResponse, AutopilotEdit, AutopilotResponse, Rule } from '../src/scenarioTypes.ts'
 
@@ -36,4 +36,34 @@ test('rejects missing, duplicated, critical, nonfinite and unit-changing edits',
   }
   assert.throws(() => planToEditActions({ ...suggestion, plan: [edit, edit] }, [age], suggestion.cohort_id))
   assert.throws(() => planToEditActions({ ...suggestion, plan: [edit] }, [{ ...age, safety_critical: true }], suggestion.cohort_id))
+})
+
+test('the first completed search is ready without a second run', () => {
+  const signature = JSON.stringify({maxEdits:3,target:80})
+  assert.equal(autopilotPhase(undefined,signature,false,false),'ready')
+  assert.equal(autopilotPhase(undefined,signature,true,false),'searching')
+  assert.equal(autopilotPhase(signature,signature,false,false),'suggestion')
+})
+
+test('3 edits at 80% then 4 edits at 80% cannot reuse the earlier suggestion', () => {
+  const first = JSON.stringify({maxEdits:3,target:80}), second = JSON.stringify({maxEdits:4,target:80})
+  assert.equal(autopilotPhase(first,second,false,false),'settings_changed')
+  assert.equal(autopilotPhase(first,second,true,false),'searching')
+  assert.equal(autopilotPhase(second,second,false,false),'suggestion')
+})
+
+test('applying uses the complete edited snapshot for comparison without accepting changes', () => {
+  assert.equal(autopilotPhase('before','after',false,true),'draft')
+  const rules=[age,hemoglobin]
+  const analysis={rules,simulation:{cohort:{id:suggestion.cohort_id}}} as AnalyzeResponse
+  const loaded=workspaceReducer(emptyWorkspace('test'),{type:'analyzed',context:'test',result:analysis})
+  const actions = planToEditActions(suggestion,rules,suggestion.cohort_id)
+  const draft = actions.reduce(workspaceReducer,loaded)
+  // The automatic API request must use this snapshot, not the previous React render.
+  assert.equal(draft.draft[0].value_max, 70)
+  assert.equal(draft.draft[1].value, 8)
+  assert.deepEqual(loaded.draft,rules)
+  assert.equal(draft.comparison,null)
+  assert.deepEqual(draft.decisions,{})
+  assert.deepEqual(draft.analysis!.rules,rules)
 })

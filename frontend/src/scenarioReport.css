@@ -1,0 +1,13 @@
+.scenario-report { margin-top: 24px; }
+.comparison-region { scroll-margin-top: 90px; }
+.manual-editor { margin-top: 24px; }
+.manual-editor > .scenario-grid { margin-top: 18px; }
+.scenario-report-summary { display: flex; flex-wrap: wrap; gap: 1.5rem 3rem; padding: 1rem 0; }
+.scenario-report-summary div { display: grid; gap: .4rem; }
+.scenario-report-summary span { color: #718278; font-size: .8rem; }
+.scenario-report-summary strong { color: #365340; font-size: 1.35rem; }
+.scenario-report-safety { background: #fff8e9; border-left: 3px solid #ba934c; padding: .8rem; font-size: .8rem; }
+.scenario-report-sections { margin: .5rem 0 1.25rem; }
+.scenario-report-sections > details { border-top: 1px solid #e1e9e1; padding: .6rem 0; }
+.scenario-report-sections > details > summary { margin: 0; }
+.scenario-report-sections > details > .card, .scenario-report-sections > details > .results-stack { margin-top: .8rem; }

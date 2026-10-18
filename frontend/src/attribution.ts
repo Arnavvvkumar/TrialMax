@@ -4,6 +4,10 @@ type AttributionInput = Pick<SimulationResult, 'modeled_rule_ids'> & Partial<Pic
 const number = new Intl.NumberFormat('en-US', { maximumFractionDigits: 2 })
 const idOrder = (a: string, b: string) => a < b ? -1 : a > b ? 1 : 0
 
+export function attributionPreview<T>(rows: T[], expanded: boolean) {
+  return { visible: expanded ? rows : rows.slice(0, 5), remaining: Math.max(0, rows.length - 5) }
+}
+
 export function formatAttributionRows(result: AttributionInput | null | undefined, rules: Rule[]) {
   const modeled = new Set(result?.modeled_rule_ids ?? [])
   const byId = new Map(rules.map(rule => [rule.id, rule]))

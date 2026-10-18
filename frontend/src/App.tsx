@@ -7,6 +7,7 @@ import type { Workspace } from './workspace'
 import { AutopilotCard } from './AutopilotCard'
 import { AttributionCard, AttributionComparison } from './AttributionCard'
 import { ResponderCard } from './ResponderCard'
+import { ScenarioReport } from './ScenarioReport'
 
 type Tab = 'overview' | 'analysis' | 'scenario' | 'rare' | 'review' | 'responder'
 const tabs = [
@@ -31,7 +32,7 @@ function ruleTagLabel(id: string, kind?: Rule['kind']) {
 function Badge({ children, kind = 'sage' }: { children: React.ReactNode; kind?: 'sage' | 'amber' | 'gray' | 'red' }) { return <span className={`badge ${kind}`}>{children}</span> }
 function Card({ children, className = '' }: { children: React.ReactNode; className?: string }) { return <section className={`card ${className}`}>{children}</section> }
 function Stat({ label, value, sub }: { label: string; value: string; sub: string }) { return <Card className="stat"><span className="stat-label">{label}</span><strong>{value}</strong><p>{sub}</p></Card> }
-function Warnings({ items }: { items: string[] }) { return items.length ? <div className="notice notice-list" role="status"><CircleHelp size={18} /><ul>{[...new Set(items)].map(item => <li key={item}>{item}</li>)}</ul></div> : null }
+function Warnings({ items }: { items: string[] }) { const visible = items.filter(item => !item.startsWith('The Synthea population is general adults aged 40-90')); return visible.length ? <div className="notice notice-list" role="status"><CircleHelp size={18} /><ul>{[...new Set(visible)].map(item => <li key={item}>{item}</li>)}</ul></div> : null }
 function Evidence({ title, children }: { title: string; children: React.ReactNode }) {
   return <details className="evidence-drawer"><summary><Info size={14} />{title}</summary><div>{children}</div></details>
 }
@@ -47,7 +48,7 @@ function Summary({ result }: { result: SimulationResult }) {
     <Stat label="Excluded by checks" value={count(result.excluded_n)} sub="At least one modeled rule failure" />
     <Stat label="Unknown on modeled checks" value={count(result.modeled_unknown_n)} sub={result.modeled_rule_ids.length ? 'Missing values on the evaluated checks' : 'No modeled checks available'} />
   </div><div className="notice"><CircleHelp size={17} /><span>{result.unmodeled_rule_ids.length > 0 ? `${result.unmodeled_rule_ids.length} rules were not checked. ${count(result.unknown_n)} patients remain unresolved.` : 'All available rules are included.'} Review modeled results before making protocol decisions.</span></div>
-  <div className="cohort-line"><Badge kind={result.complete ? 'sage' : 'amber'}>{result.complete ? 'Checks fully evaluated' : 'Incomplete / approximate'}</Badge><span>Rule coverage: {pct(result.coverage_pct)}</span><code>{result.cohort.id}</code></div></>
+  <div className="cohort-line"><Badge kind={result.complete ? 'sage' : 'amber'}>{result.complete ? 'Checks fully evaluated' : 'Incomplete / approximate'}</Badge><span>Rule coverage: {pct(result.coverage_pct)}</span></div></>
 }
 
 function VisualAnalysis({ result, rules }: { result: SimulationResult; rules: Rule[] }) {
@@ -194,6 +195,8 @@ export default function App() {
   const [catalogError, setCatalogError] = useState<string | null>(null), [error, setError] = useState<string | null>(null), [busy, setBusy] = useState<'analysis' | 'compare' | 'rare' | null>(null), [selectedId, setSelectedId] = useState('')
   const initialHistoryState = useRef(false)
   const [rareReach, setRareReach] = useState<RareReachResponse | null>(null)
+  const [autopilotRevision, setAutopilotRevision] = useState(0)
+  const comparisonRegion = useRef<HTMLDivElement>(null), scrollToComparison = useRef(false)
   const option = catalog?.options.find(item => item.mode === mode)
   const population = useMemo<PopulationChoice>(() => ({ mode, size: mode !== 'generated' ? option?.size ?? 500 : size, seed: mode !== 'generated' ? option?.seed ?? 0 : seed, version: option?.version, ...(option?.cohort_id ? { cohort_id: option.cohort_id } : {}) }), [mode, size, seed, option])
   const context = JSON.stringify([nctId.trim().toUpperCase(), population, useLlm])
@@ -219,6 +222,12 @@ export default function App() {
     return () => window.removeEventListener('popstate', onPopState)
   }, [])
   useEffect(() => () => controller.current?.abort(), [])
+  useEffect(() => {
+    if (!scrollToComparison.current || tab !== 'scenario') return
+    const frame = window.requestAnimationFrame(() => comparisonRegion.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }))
+    if (busy !== 'compare') scrollToComparison.current = false
+    return () => window.cancelAnimationFrame(frame)
+  }, [busy, workspace.comparison, tab])
   const analysis = workspace.analysis, baseline = analysis?.rules ?? [], changes = changedRules(baseline, workspace.draft)
   const selected = workspace.draft.find(r => r.id === selectedId) ?? workspace.draft[0]
   const populationValid = mode !== 'generated' || (Number.isInteger(size) && size >= 100 && size <= 200000 && Number.isInteger(seed) && seed >= 0 && seed <= 4294967295)
@@ -234,10 +243,11 @@ export default function App() {
     } catch (cause) { if (!abort.signal.aborted && requestId === sequence.current) setError(String(cause)) }
     finally { if (requestId === sequence.current) setBusy(null) }
   }
-  async function compare() {
+  const compare = () => compareSnapshot(workspace.draft)
+  async function compareSnapshot(draft: Rule[], autoScroll = false) {
     if (!analysis) return
     cancel(); const requestId = sequence.current; const abort = new AbortController(); controller.current = abort
-    const snapshot = structuredClone(workspace.draft); setBusy('compare'); setError(null)
+    const snapshot = structuredClone(draft); scrollToComparison.current = autoScroll; setBusy('compare'); setError(null)
     try {
       const result = await compareCriteria(baseline, snapshot, { ...population, cohort_id: analysis.simulation.cohort.id }, abort.signal)
       if (requestId !== sequence.current) return
@@ -271,10 +281,14 @@ export default function App() {
         <Warnings items={analysis.warnings.filter(warning => !analysis.simulation.warnings.includes(warning) || tab === 'review')} />
         {tab === 'analysis' && <><div className="toolbar-actions analysis-actions"><button className="btn primary" onClick={() => go('scenario')}>Edit a draft <ArrowRight size={16} /></button></div><Results result={analysis.simulation} rules={baseline} variables={variables} /></>}
         {tab === 'scenario' && <><div className="scenario-toolbar"><div><h2>Draft eligibility rules</h2><p>Original rules stay intact. Changes apply only to this exploratory draft.</p></div><div className="toolbar-actions"><button className="btn outline" disabled={!changes.length || Boolean(busy)} onClick={() => dispatch({ type: 'analyzed', context, result: analysis })}><RotateCcw size={15} />Reset draft</button><button className="btn primary" disabled={!changes.length || !validDraft(workspace.draft) || Boolean(busy)} onClick={compare}>{busy === 'compare' ? 'Comparing…' : 'Compare draft'}<ArrowRight size={16} /></button>{busy && <button className="btn outline" onClick={cancel}>Cancel</button>}</div></div>
-          <AutopilotCard rules={workspace.draft} population={{ ...population, cohort_id: analysis.simulation.cohort.id }} disabled={Boolean(busy) || !validDraft(workspace.draft)} llmConfigured={Boolean(health?.llm_configured)} onApply={actions => { cancel(); actions.forEach(action => dispatch(action)) }} />
+          <AutopilotCard rules={workspace.draft} population={{ ...population, cohort_id: analysis.simulation.cohort.id }} disabled={Boolean(busy) || !validDraft(workspace.draft)} llmConfigured={Boolean(health?.llm_configured)} onSearchChange={() => setAutopilotRevision(value => value + 1)} onCompare={compare} onApply={actions => { const snapshot = actions.reduce(workspaceReducer, workspace).draft; actions.forEach(action => dispatch(action)); void compareSnapshot(snapshot, true) }} />
           {!validDraft(workspace.draft) && <div className="error-notice">Enter finite numeric thresholds and keep upper bounds at least as large as lower bounds.</div>}
-          <div className="scenario-grid connected-grid"><Card className="criteria-card"><div className="card-top"><h3>Parsed rules</h3><Badge kind="gray">{baseline.length}</Badge></div><div className="criteria-list">{workspace.draft.map(rule => <button key={rule.id} className={`criterion-item ${selected?.id === rule.id ? 'selected' : ''}`} onClick={() => setSelectedId(rule.id)}><span className="criterion-number">{rule.id}</span><span><strong>{variables[rule.variable ?? '']?.label ?? readable(rule.category)}</strong><small>{rule.clause ?? rule.text}</small></span><Badge kind={rule.simulatable && option?.available_variables.includes(rule.variable ?? '') ? 'sage' : 'gray'}>{rule.simulatable ? option?.available_variables.includes(rule.variable ?? '') ? 'Modeled' : 'Unavailable' : 'Unmodeled'}</Badge></button>)}</div></Card>{selected && <RuleEditor rule={selected} original={baseline.find(r => r.id === selected.id)!} metadata={variables[selected.variable ?? '']} available={Boolean(option?.available_variables.includes(selected.variable ?? ''))} onEdit={edit} />}</div>
-          {workspace.comparison ? <div className="results-stack comparison-stack"><Comparison result={workspace.comparison} /><AttributionComparison baseline={workspace.comparison.baseline} proposed={workspace.comparison.proposed} baselineRules={analysis.rules} proposedRules={workspace.draft} /><button className="btn primary" onClick={() => go('review')}>Review proposed changes <FileCheck2 size={16} /></button><Results result={workspace.comparison.proposed} rules={workspace.draft} variables={variables} /></div> : <div className="notice"><CircleHelp size={17} />{changes.length ? `${changes.length} edited rule(s). Compare the draft to update results.` : 'Select a supported numeric rule to explore a threshold change.'}</div>}
+          <details className="results-section manual-editor"><summary>Manual threshold editor <Badge kind="gray">Expand to edit</Badge></summary><div className="scenario-grid connected-grid"><Card className="criteria-card"><div className="card-top"><h3>Parsed rules</h3><Badge kind="gray">{baseline.length}</Badge></div><div className="criteria-list">{workspace.draft.map(rule => <button key={rule.id} className={`criterion-item ${selected?.id === rule.id ? 'selected' : ''}`} onClick={() => setSelectedId(rule.id)}><span className="criterion-number">{rule.id}</span><span><strong>{variables[rule.variable ?? '']?.label ?? readable(rule.category)}</strong><small>{rule.clause ?? rule.text}</small></span><Badge kind={rule.simulatable && option?.available_variables.includes(rule.variable ?? '') ? 'sage' : 'gray'}>{rule.simulatable ? option?.available_variables.includes(rule.variable ?? '') ? 'Modeled' : 'Unavailable' : 'Unmodeled'}</Badge></button>)}</div></Card>{selected && <RuleEditor rule={selected} original={baseline.find(r => r.id === selected.id)!} metadata={variables[selected.variable ?? '']} available={Boolean(option?.available_variables.includes(selected.variable ?? ''))} onEdit={edit} />}</div></details>
+          <div ref={comparisonRegion} className="comparison-region" aria-live="polite">{busy === 'compare' ? <div className="notice" role="status">Generating draft comparison and Shapley attribution…</div> : workspace.comparison ? <ScenarioReport key={autopilotRevision} result={workspace.comparison} onReview={() => go('review')}
+            comparison={<Comparison result={workspace.comparison} />}
+            shapley={<AttributionComparison baseline={workspace.comparison.baseline} proposed={workspace.comparison.proposed} baselineRules={analysis.rules} proposedRules={workspace.draft} />}
+            fullResults={<Results result={workspace.comparison.proposed} rules={workspace.draft} variables={variables} />} />
+            : <div className="notice"><CircleHelp size={17} />{changes.length ? `${changes.length} edited rule(s). Click Compare draft to generate the comparison and before-and-after Shapley.` : 'Apply an Autopilot suggestion to generate a comparison automatically, or expand the manual editor and click Compare draft. Original Shapley is available on the Results tab.'}</div>}</div>
         </>}
         {tab === 'rare' && (analysis.trial.nct_id ? <RareReach result={rareReach} loading={busy === 'rare'} onLoad={loadRareReach} /> : <Card><div className="empty-view"><MapPinned size={30} /><h2>RareReach needs an NCT ID</h2><p>Load a public ClinicalTrials.gov trial first to research its condition and public site history.</p><button className="btn primary" onClick={() => go('overview')}>Load a trial <ArrowRight size={16} /></button></div></Card>)}
         {tab === 'review' && <Review workspace={workspace} decide={(id, decision) => dispatch({ type: 'decide', id, decision })} />}

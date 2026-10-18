@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { compareAttributionRows, formatAttributionRows } from '../src/attribution.ts'
+import { attributionPreview, compareAttributionRows, formatAttributionRows } from '../src/attribution.ts'
 import type { Rule, RuleAttribution } from '../src/scenarioTypes.ts'
 
 const rules = [{ id: 'A', variable: 'hemoglobin' }, { id: 'B', variable: 'platelets' }, { id: 'C', variable: 'age' }] as Rule[]
@@ -61,4 +61,17 @@ test('comparison preserves each scenario share and distinguishes unmodeled from 
   assert.equal(b.afterMissing, 'Not modeled')
   assert.equal(rows.find(r => r.ruleId === 'C')!.before, null)
   assert.deepEqual(compareAttributionRows(simulation([]), simulation([]), rules), [])
+})
+
+
+test('comparison shows five rows until expanded and preserves the complete ranking', () => {
+  const rows = Array.from({length: 12}, (_, i) => ({id: i}))
+  const collapsed = attributionPreview(rows, false)
+  assert.deepEqual(collapsed.visible, rows.slice(0, 5))
+  assert.equal(collapsed.remaining, 7)
+  assert.deepEqual(attributionPreview(rows, true).visible, rows)
+  assert.deepEqual(attributionPreview(rows, false).visible, collapsed.visible)
+  assert.equal(rows.length, 12)
+  assert.deepEqual(attributionPreview([], false), {visible: [], remaining: 0})
+  assert.equal(attributionPreview(rows.slice(0, 3), false).remaining, 0)
 })

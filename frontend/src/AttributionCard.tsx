@@ -1,5 +1,6 @@
+import { useState } from 'react'
 import type { Rule, SimulationResult } from './scenarioTypes'
-import { compareAttributionRows, formatAttributionRows } from './attribution'
+import { attributionPreview, compareAttributionRows, formatAttributionRows } from './attribution'
 import './attribution.css'
 
 const explainer = 'Each excluded patient counts once, split equally among every rule that excludes them, so the ranking does not depend on rule order.'
@@ -25,14 +26,16 @@ export function AttributionCard({ result, rules }: { result: SimulationResult; r
 }
 
 export function AttributionComparison({ baseline, proposed, baselineRules, proposedRules }: { baseline: SimulationResult; proposed: SimulationResult; baselineRules: Rule[]; proposedRules: Rule[] }) {
+  const [expanded, setExpanded] = useState(false)
   const rows = compareAttributionRows(baseline, proposed, baselineRules, proposedRules)
+  const preview = attributionPreview(rows, expanded)
   return <section className="card attribution-card" aria-label="Shapley attribution before and after">
     <div className="card-top"><div><h2>Shapley attribution before and after</h2><p>{explainer}</p></div></div>
     <p className="attribution-caveat">{caveat}</p>
     <p className="muted">Each share uses that scenario's own exclusion total: baseline {baseline.attribution_total_excluded ?? 'unavailable'}, draft {proposed.attribution_total_excluded ?? 'unavailable'}. A share can rise while its attributed count falls. These are baseline-versus-draft results, not acceptance decisions.</p>
-    {rows.length ? <div className="table-scroll"><table className="attribution-table"><thead><tr><th>Rule</th><th>Baseline attribution / share</th><th>Draft attribution / share</th></tr></thead><tbody>{rows.map(row => <tr key={row.ruleId}>
+    {rows.length ? <><div className="table-scroll"><table id="shapley-comparison-rows" className="attribution-table"><thead><tr><th>Rule</th><th>Baseline attribution / share</th><th>Draft attribution / share</th></tr></thead><tbody>{preview.visible.map(row => <tr key={row.ruleId}>
       <td>{row.name}</td><td>{row.before ? `${row.before.patientLabel} · ${row.before.shareLabel}` : row.beforeMissing}</td>
       <td>{row.after ? `${row.after.patientLabel} · ${row.after.shareLabel}` : row.afterMissing}</td>
-    </tr>)}</tbody></table></div> : <p className="empty-state">No attribution is available for this comparison.</p>}
+    </tr>)}</tbody></table></div>{preview.remaining > 0 && <button className="btn outline attribution-expand" aria-expanded={expanded} aria-controls="shapley-comparison-rows" onClick={() => setExpanded(value => !value)}>{expanded ? '▴ Show fewer rules' : `▾ Show ${preview.remaining} more rules`}</button>}</> : <p className="empty-state">No attribution is available for this comparison.</p>}
   </section>
 }
