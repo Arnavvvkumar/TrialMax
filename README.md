@@ -40,24 +40,22 @@ Clinical trial criteria can be long, restrictive, and difficult to evaluate befo
 
 ## ⚙️ How It Works
 
-```mermaid
 flowchart TD
-    A[Enter NCT ID] --> B[ClinicalTrials.gov record]
-    B --> C[Parse eligibility criteria]
-    C --> D{Can the rule be modeled?}
+    A["Enter NCT ID"] --> B["Fetch public trial data from ClinicalTrials.gov"]
+    B --> C["Parse eligibility criteria"]
+    C --> D["Evaluate synthetic patient cohort"]
+    D --> E["Pass / Fail / Unknown per criterion"]
+    E --> F["Eligibility funnel and overlap analysis"]
+    F --> G["Scenario comparison"]
+    G --> H["Researcher review"]
 
-    D -->|Yes| E[Evaluate synthetic cohort]
-    E --> F[Pass / Fail / Unknown]
-    F --> G[Results dashboard]
+    B --> I["RareReach verification"]
+    I --> J{"Exact Orphadata rare-disease match?"}
+    J -->|Yes| K["Show ORPHAcode, synonyms, US site history, and public outreach links"]
+    J -->|No| L["Stop RareReach and explain that no rare-disease match was confirmed"]
 
-    D -->|No| H[Show as Not checked]
-    H --> G
-
-    G --> I[Funnel, overlap and rule impact]
-    I --> J[Draft threshold changes]
-    J --> K[Compare same cohort]
-    K --> L[Researcher review
-```
+    H --> M["Export decision brief"]
+    K --> M
 
 ## 🧪 Eligibility Results
 
