@@ -116,6 +116,20 @@ class RuleImpact(BaseModel):
     unknown_n: int = 0
 
 
+class AttributionOverlap(BaseModel):
+    rule_id: str
+    patient_n: int
+
+
+class RuleAttribution(BaseModel):
+    rule_id: str
+    shapley_value: float
+    unique_n: int
+    total_fail_n: int
+    shapley_share_pct: float
+    top_overlaps: list[AttributionOverlap] = Field(default_factory=list)
+
+
 class FunnelStep(BaseModel):
     rule_id: Optional[str]
     label: str
@@ -169,6 +183,8 @@ class SimulationResult(BaseModel):
     not_applicable_rule_ids: list[str]
     not_simulated_rule_ids: list[str]
     impacts: list[RuleImpact]
+    attributions: list[RuleAttribution] = Field(default_factory=list)
+    attribution_total_excluded: int = 0
     funnel_basis: Literal["modeled_checks"] = "modeled_checks"
     funnel: list[FunnelStep]
     worst_rule_id: Optional[str]

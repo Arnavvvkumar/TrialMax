@@ -1,0 +1,14 @@
+.attribution-card .card-top { align-items: flex-start; gap: 1rem; }
+.attribution-caveat { padding: .75rem 1rem; border-left: 3px solid #c89951; background: #fff8ec; font-size: .9rem; }
+.attribution-rows { max-height: 36rem; overflow-y: auto; }
+.attribution-row { padding: 1rem 0; border-top: 1px solid #e5ece8; }
+.attribution-heading { display: flex; justify-content: space-between; gap: 1rem; flex-wrap: wrap; }
+.attribution-heading strong { overflow-wrap: anywhere; }
+.attribution-heading span { font-variant-numeric: tabular-nums; }
+.attribution-track { height: .65rem; margin: .6rem 0; background: #eaf0ec; border-radius: 1rem; overflow: hidden; }
+.attribution-track > span { display: block; height: 100%; background: #5d8974; }
+.attribution-row p { margin: .35rem 0; font-size: .9rem; overflow-wrap: anywhere; }
+.attribution-table { width: 100%; min-width: 36rem; font-variant-numeric: tabular-nums; }
+.attribution-table th, .attribution-table td { padding: .8rem; text-align: left; vertical-align: top; }
+.attribution-table th { background: #f2f6f3; }
+.attribution-table td { border-top: 1px solid #e5ece8; overflow-wrap: anywhere; }

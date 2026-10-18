@@ -5,6 +5,7 @@ from itertools import combinations
 
 import numpy as np
 
+from .attribution import shapley_attribution
 from .models import (
     CohortInfo, CriterionResult, ExcludedPatient, FunnelStep, PatientResult, Rule,
     RuleImpact, RuleOverlap, SimulationResult, ensure_unique_ids,
@@ -153,6 +154,8 @@ def evaluate(rules: list[Rule], columns: dict[str, np.ndarray], cohort: CohortIn
         modeled_rule_ids=modeled, approximate_rule_ids=approximate, unmodeled_rule_ids=unmodeled,
         not_applicable_rule_ids=not_applicable, not_simulated_rule_ids=[r.id for r in rules if r.id not in modeled],
         impacts=impacts, funnel=funnel, worst_rule_id=ranked[0].rule_id if ranked else None,
+        attributions=shapley_attribution(rules, masks, modeled),
+        attribution_total_excluded=int(modeled_failure.sum()),
         sample_excluded=excluded, assumptions=assumptions, patient_results=patients,
         patient_results_complete=len(preview) == n, rule_overlaps=overlaps, overlaps_truncated=len(ranked) > 20,
     )

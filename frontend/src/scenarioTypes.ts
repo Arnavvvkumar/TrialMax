@@ -20,6 +20,8 @@ export interface TrialInfo {
   minimum_age: string | null; maximum_age: string | null; sex: string | null; eligibility_text: string
 }
 export interface RuleImpact { rule_id: string; simulated: boolean; fail_n: number; fail_pct: number; unique_fail_n: number; unique_fail_pct: number; pass_n: number; unknown_n: number }
+export interface AttributionOverlap { rule_id: string; patient_n: number }
+export interface RuleAttribution { rule_id: string; shapley_value: number; unique_n: number; total_fail_n: number; shapley_share_pct: number; top_overlaps: AttributionOverlap[] }
 export interface FunnelStep { rule_id: string | null; label: string; remaining_n: number; remaining_pct: number; unknown_n: number }
 export interface PatientResult { patient_id: string; overall_status: 'pass' | 'fail' | 'unknown'; modeled_status: 'pass' | 'fail' | 'unknown'; criteria: { rule_id: string; status: 'pass' | 'fail' | 'unknown'; value: number | boolean | null }[] }
 export interface SimulationResult {
@@ -28,6 +30,7 @@ export interface SimulationResult {
   modeled_eligible_n: number | null; modeled_eligible_pct: number | null; modeled_unknown_n: number; complete: boolean; coverage_pct: number | null
   modeled_rule_ids: string[]; approximate_rule_ids: string[]; unmodeled_rule_ids: string[]
   not_applicable_rule_ids: string[]; not_simulated_rule_ids: string[]; impacts: RuleImpact[]
+  attributions: RuleAttribution[]; attribution_total_excluded: number
   funnel_basis: 'modeled_checks'; funnel: FunnelStep[]; worst_rule_id: string | null; assumptions: string[]; warnings: string[]
   patient_results: PatientResult[]; patient_results_complete: boolean
   rule_overlaps: { rule_a_id: string; rule_b_id: string; patient_n: number }[]; overlaps_truncated: boolean
