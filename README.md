@@ -40,6 +40,7 @@ Clinical trial criteria can be long, restrictive, and difficult to evaluate befo
 
 ## ⚙️ How It Works
 
+```mermaid
 flowchart TD
     A["Enter NCT ID"] --> B["Fetch public trial data from ClinicalTrials.gov"]
     B --> C["Parse eligibility criteria"]
@@ -56,6 +57,7 @@ flowchart TD
 
     H --> M["Export decision brief"]
     K --> M
+```
 
 ## 🧪 Eligibility Results
 
