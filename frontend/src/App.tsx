@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useReducer, useRef, useState } from 'react'
-import { ArrowLeft, ArrowRight, BarChart3, CheckCircle2, ChevronDown, ChevronRight, CircleHelp, Download, FileCheck2, FlaskConical, Info, LayoutDashboard, Leaf, MapPinned, Menu, RotateCcw, ShieldAlert, ShieldCheck, SlidersHorizontal, X } from 'lucide-react'
+import { ArrowLeft, ArrowRight, BarChart3, CheckCircle2, ChevronDown, ChevronRight, CircleHelp, Download, FileCheck2, FlaskConical, Info, LayoutDashboard, Leaf, MapPinned, Menu, Moon, RotateCcw, ShieldAlert, ShieldCheck, SlidersHorizontal, Sun, X } from 'lucide-react'
 import { analyzeTrial, compareCriteria, getHealth, getPopulations, getRareReach, getVariables } from './simulationService'
 import { changedRules, defaultPopulationMode, emptyWorkspace, notCheckedDetail, validDraft, workspaceReducer } from './workspace'
 import type { ApiHealth, CompareResult, PopulationCatalog, PopulationChoice, PopulationMode, RareReachResponse, ReviewDecision, Rule, SimulationResult, VariableMeta } from './scenarioTypes'
@@ -222,6 +222,7 @@ function Review({ workspace, decide }: { workspace: Workspace; decide: (id: stri
 
 export default function App() {
   const [tab, setTab] = useState<Tab>('overview'), [mobileOpen, setMobileOpen] = useState(false)
+  const [lightMode, setLightMode] = useState(() => window.localStorage.getItem('trialmax-theme') === 'light')
   const [nctId, setNctId] = useState('')
   const [mode, setMode] = useState(defaultPopulationMode('nct')), [size, setSize] = useState(10000), [seed, setSeed] = useState(42), [useLlm, setUseLlm] = useState(false)
   const [health, setHealth] = useState<ApiHealth | null>(null)
@@ -254,6 +255,7 @@ export default function App() {
     return () => window.removeEventListener('popstate', onPopState)
   }, [])
   useEffect(() => () => controller.current?.abort(), [])
+  useEffect(() => { window.localStorage.setItem('trialmax-theme', lightMode ? 'light' : 'dark') }, [lightMode])
   const analysis = workspace.analysis, baseline = analysis?.rules ?? [], changes = changedRules(baseline, workspace.draft)
   const selected = workspace.draft.find(r => r.id === selectedId) ?? workspace.draft[0]
   const populationValid = mode !== 'generated' || (Number.isInteger(size) && size >= 100 && size <= 200000 && Number.isInteger(seed) && seed >= 0 && seed <= 4294967295)
@@ -293,8 +295,8 @@ export default function App() {
     if (next !== tab && initialHistoryState.current) window.history.pushState({ clinovaTab: next }, '', window.location.href)
     setTab(next); setMobileOpen(false)
   }
-  return <div className="app-shell"><aside className={`sidebar ${mobileOpen ? 'shown' : ''}`}><div className="logo-wrap"><div className="logo-mark"><Leaf size={22} /></div><div><div className="logo-text">TrialMax<span className="logo-period">.</span></div><div className="logo-sub">Clinical trial intelligence</div></div><button className="close-mobile" onClick={() => setMobileOpen(false)} aria-label="Close menu"><X size={19} /></button></div><div className="workspace-label">WORKSPACE</div><nav className="nav">{tabs.map(item => <button key={item.id} className={`nav-item ${tab === item.id ? 'active' : ''}`} onClick={() => go(item.id)}><item.icon size={18} />{item.name}</button>)}</nav><div className="side-bottom"><div className="side-footer"><ShieldCheck size={17} /> Researcher review required</div></div></aside>
-    <div className="mobile-shade" onClick={() => setMobileOpen(false)} style={{ display: mobileOpen ? 'block' : 'none' }} /><div className="main-area"><header className="topbar"><button className="menu-btn" onClick={() => setMobileOpen(true)} aria-label="Open navigation"><Menu size={20} /></button><button className="back-button" disabled={tab === 'overview'} onClick={() => window.history.back()} aria-label="Go back"><ArrowLeft size={16} /> Back</button><div className="crumb">TrialMax <ChevronRight size={14} /> {tabs.find(item => item.id === tab)?.name}</div><span className="demo-pill"><FlaskConical size={15} /> {mode === 'synthea' ? 'Synthea patients' : mode === 'fixed' ? 'Patient population' : 'Exploration population'}</span></header>
+  return <div className={`app-shell ${lightMode ? 'light-mode' : ''}`}><aside className={`sidebar ${mobileOpen ? 'shown' : ''}`}><div className="logo-wrap"><div className="logo-mark"><Leaf size={22} /></div><div><div className="logo-text">TrialMax<span className="logo-period">.</span></div><div className="logo-sub">Clinical trial intelligence</div></div><button className="close-mobile" onClick={() => setMobileOpen(false)} aria-label="Close menu"><X size={19} /></button></div><div className="workspace-label">WORKSPACE</div><nav className="nav">{tabs.map(item => <button key={item.id} className={`nav-item ${tab === item.id ? 'active' : ''}`} onClick={() => go(item.id)}><item.icon size={18} />{item.name}</button>)}</nav><div className="side-bottom"><div className="side-footer"><ShieldCheck size={17} /> Researcher review required</div></div></aside>
+    <div className="mobile-shade" onClick={() => setMobileOpen(false)} style={{ display: mobileOpen ? 'block' : 'none' }} /><div className="main-area"><header className="topbar"><button className="menu-btn" onClick={() => setMobileOpen(true)} aria-label="Open navigation"><Menu size={20} /></button><button className="back-button" disabled={tab === 'overview'} onClick={() => window.history.back()} aria-label="Go back"><ArrowLeft size={16} /> Back</button><div className="crumb">TrialMax <ChevronRight size={14} /> {tabs.find(item => item.id === tab)?.name}</div><div className="topbar-actions"><span className="demo-pill"><FlaskConical size={15} /> {mode === 'synthea' ? 'Synthea patients' : mode === 'fixed' ? 'Patient population' : 'Exploration population'}</span><button className="theme-toggle" onClick={() => setLightMode(value => !value)} aria-label={lightMode ? 'Switch to dark mode' : 'Switch to light mode'}>{lightMode ? <Moon size={16} /> : <Sun size={16} />}</button></div></header>
     <main className="content"><div className="page-heading"><div><h1>{tabs.find(item => item.id === tab)?.name}</h1></div></div>
       {catalogError && <div className="error-notice" role="alert">{catalogError}<button className="btn outline" onClick={() => window.location.reload()}>Retry connection</button></div>}{error && <div className="error-notice" role="alert"><ShieldAlert size={18} />{error}</div>}
       {tab === 'overview' && <Card className="welcome-card"><div className="welcome-icon"><FlaskConical size={20} /></div><div><span className="eyebrow">CLINOVA WORKSPACE</span><h2>Understand eligibility before changing the protocol.</h2><p>Load a trial, review each criterion, and compare proposed changes using clear patient-level results.</p></div></Card>}
