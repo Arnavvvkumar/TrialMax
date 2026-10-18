@@ -4,7 +4,6 @@ export interface CohortInfo { id: string; mode: PopulationMode; version: string;
 export interface PopulationOption { mode: PopulationMode; version: string; label: string; size: number; seed: number | null; cohort_id: string | null; available_variables: string[]; visible?: boolean }
 export interface PopulationCatalog { default_mode: PopulationMode; options: PopulationOption[] }
 export interface ApiHealth { status: string; llm_configured: boolean; model: string | null; llm_status: 'not_configured' | 'configured_not_verified'; llm_missing_configuration: string[] }
-export interface ChalkCheck { status: string; message: string; model: string | null; http_status: number | null; checked_at: string; elapsed_ms: number }
 export type RuleOperator = '>=' | '<=' | '>' | '<' | '==' | 'between' | 'present' | 'absent'
 export interface Rule {
   id: string; kind: 'inclusion' | 'exclusion'; text: string; clause: string | null
