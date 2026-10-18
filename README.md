@@ -1,4 +1,4 @@
-# 🧬 TrialMax — TrialMax
+# 🧬 TrialMax
 
 ### Clinical-trial eligibility and recruitment intelligence
 
