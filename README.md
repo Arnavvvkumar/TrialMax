@@ -1,8 +1,8 @@
-# 🧬 TrailMax — TrialMax
+# 🧬 TrialMax — TrialMax
 
 ### Clinical-trial eligibility and recruitment intelligence
 
-TrailMax helps researchers understand how trial eligibility criteria affect recruitment **before** a protocol is finalized.
+TrialMax helps researchers understand how trial eligibility criteria affect recruitment **before** a protocol is finalized.
 
 Enter a ClinicalTrials.gov NCT ID to parse public eligibility criteria, simulate modeled rules on a synthetic patient cohort, explore draft threshold changes, and investigate rare-disease recruitment opportunities.
 
@@ -12,7 +12,7 @@ Enter a ClinicalTrials.gov NCT ID to parse public eligibility criteria, simulate
 
 Clinical trial criteria can be long, restrictive, and difficult to evaluate before recruitment begins.
 
-| Challenge | TrailMax helps by |
+| Challenge | TrialMax helps by |
 | --- | --- |
 | Long eligibility criteria | Parsing criteria into clear inclusion/exclusion rules |
 | Unknown recruitment bottlenecks | Showing which modeled rules exclude the most patients |
@@ -22,7 +22,7 @@ Clinical trial criteria can be long, restrictive, and difficult to evaluate befo
 
 ---
 
-## 🚀 What TrailMax Does
+## 🚀 What TrialMax Does
 
 - Loads public ClinicalTrials.gov trials using an NCT ID
 - Parses eligibility criteria into structured rules
@@ -105,7 +105,7 @@ Exact rare-disease match?
 
 ## 🤖 Chalk Integration
 
-| Capability | Use in TrailMax |
+| Capability | Use in TrialMax |
 | --- | --- |
 | Chalk SQL | Optional public-trial lookup source |
 | Chalk Model Gateway | Optional fallback parser for unread criteria |
@@ -170,7 +170,7 @@ npm run build
 
 ## ⚠️ Important Note
 
-TrailMax is a research prototype, not a clinical decision system.
+TrialMax is a research prototype, not a clinical decision system.
 
 - All patient-level results use synthetic data.
 - Modeled eligibility is not real-world recruitment evidence.
