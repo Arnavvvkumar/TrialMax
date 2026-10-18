@@ -32,4 +32,5 @@ def test_non_rare_condition_stops_before_site_or_outreach_research():
     assert response.hospitals == []
     assert response.strategies == []
     assert response.nord_url is None
+    assert "Rare condition" in response.rare_disease_message
     assert response.sources[1]["access"] == "live"
